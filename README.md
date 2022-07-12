@@ -9,15 +9,12 @@ This workshop is a follow-up to a previous workshop on “Using Containers on HP
 View this workshop at
 
 - HTML version
-
-        - http://ucla-oarc-hpc.github.io/WS_MakingContainers
-        - `docs` directory
+		- [https://ucla-oarc-hpc.github.io/WS_MakingContainers/](https://ucla-oarc-hpc.github.io/WS_MakingContainers/)
+		- `docs` directory
 
 - PDF version
-
-        - `MakingContainers.pdf`
+		- `MakingContainers.pdf`
 
 - Quarto file
-
-        - Making Container.qmd
+		- Making Container.qmd
 
