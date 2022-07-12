@@ -1,0 +1,25 @@
+# Compile code from build container
+Bootstrap: docker
+From: charliecpeterson/build:gcc10.3.0_oneapi
+Stage: devel
+
+%files
+  MPI_hello.c /MPI_hello.c
+  
+%post
+  mkdir -pv /apps
+  cd /apps
+  mv /MPI_hello.c ./
+  mpiicpc -o MPI_test.x MPI_hello.c
+  rm MPI_hello.c
+
+# move binary from build env to run env
+Bootstrap: docker
+From: charliecpeterson/run:gcc10.3.0_oneapi
+Stage: final
+
+%files from devel
+  /apps /apps
+  
+%environment
+export PATH=/apps:$PATH

@@ -1,0 +1,17 @@
+#!/bin/bash
+#$ -cwd
+#$ -o hello.$JOB_ID
+#$ -j y
+#$ -l h_rt=1:00:00,h_data=5G
+#$ -pe dc* 16
+#$ -l arch=intel-gold*
+
+# load the job environment:
+# Must load the apptainer AND intel module 
+# intel module has intelMPI
+. /u/local/Modules/default/init/modules.sh
+module load apptainer/1.0.0
+module load intel/2022.1.1
+# First convert to Sandbox
+apptainer build --sandbox hello-SB hello.sif
+time mpirun `which apptainer` exec hello-SB MPI_test.x

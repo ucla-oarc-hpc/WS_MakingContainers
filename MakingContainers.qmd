@@ -1,0 +1,1362 @@
+---
+title: "Building Containers for HPC"
+author: "Charles Peterson"
+data: "July 6, 2022"
+format: 
+  revealjs: 
+    transition: slide
+    theme: simple
+    scrollable: true
+    self-contained: true
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## Overview
+
+Welcome!
+
+
+In this workshop, we will go over using containers on HPC resources,
+like UCLA's Hoffman2. This is a follow-up to a previous workshop ["Using
+Containers on HPC
+Resources"](https://github.com/ucla-oarc-hpc/hpc_workshops/tree/master/containerWS-04202022)
+
+::: columns
+::: {.column .fragment width="40%"}
+-   We will go over more advance container topics
+
+-   We will build container for use on HPC resources
+:::
+
+::: {.column .fragment width="60%"}
+
+Any suggestions for upcoming workshops, email me 
+
+- cpeterson\@oarc.ucla.edu
+:::
+:::
+
+
+## Files for this Presentation
+
+This presentation can be found on our UCLA OARC's github repo under
+**MakingContainers_07062022** folder
+
+<https://github.com/ucla-oarc-hpc/hpc_workshops>
+
+The `slides` folder has this slides.
+
+-   PDF format: `MakingContainers.pdf`
+-   html format: `html` directory
+    -   You can open the `MakingContainers.html` file in your web
+        browser
+
+::: callout-note
+This presentation was build with [Quarto](https://quarto.org/) and
+RStudio.
+
+-   Quarto file: `MakingContainers.qmd`
+:::
+
+# Container Review
+
+## Containers
+
+![](container_apps.png){.absolute top="100" left="100"}
+
+## Software for Containers
+
+::: columns
+::: {.column width="40%"}
+![](word_cloud.png){.absolute bottom="150" width="35%"}
+:::
+
+::: {.column width="60%"}
+Apptainer
+
+-   Formerly Singularity
+-   Designed and developed for HPC systems
+-   Mostly likely installed on most HPC systems
+-   Supports Infiniband, GPUs, MPI, and other devices on the Host
+-   Can run Docker containers
+:::
+:::
+
+## Software for Containers
+
+::: columns
+::: {.column width="40%"}
+![](word_cloud.png){.absolute bottom="150" width="35%"}
+:::
+
+::: {.column width="60%"}
+Docker
+
+-   Very popular
+-   Many popular cloud container registries
+    -   DockerHub, GitHub, Nvidia NGC
+-   MPI not well supported
+-   Most likely NOT available on many HPC systems
+:::
+:::
+
+## Software for Containers
+
+::: columns
+::: {.column width="40%"}
+![](word_cloud.png){.absolute bottom="150" width="35%"}
+:::
+
+::: {.column width="60%"}
+Podman
+
+-   Similar syntax as with Docker
+    -   Can use to 'replace' Docker
+-   Doesn't have a root daemon process
+-   On some HPC resources (not on Hoffman2, yet)
+:::
+:::
+
+## Apptainer workflow {.nostretch}
+
+![](diagram.png){width="1000px" height="200px"}
+
+## Apptainer workflow (Create) {.nostretch .smaller}
+
+-   Build a container by installing Appainer on your computer (where you
+    have root/sudo access) to create a container
+
+-   Use a pre-built container
+
+    -   Search Container Registries for container
+    -   DockerHub, GitHub packages, Nvidia NGC
+    
+- A SIF file contains the image for the container
+- A sandbox container is a directory format used for writable containers
+
+![](diagram-create.png){width="1000px" height="250px"}
+
+## Apptainer workflow (Transfer) {.nostretch}
+
+
+Bring your container to Hoffman2
+
+-   Copy your container to Hoffman2
+
+``` bash
+scp test.sif H2USERNAME@hoffman2.idre.ucla.edu
+```
+
+-   Pull a container from online Container Register
+
+``` bash
+apptainer pull docker://ubuntu:20.04
+```
+
+-   Use a container pre-built on Hoffman2
+
+``` bash
+#Pre-built container location on Hoffman2
+ls $H2_CONTAINER_LOC
+```
+
+![](diagram-transfer.png){width="1000px" height="250px"}
+
+## Apptainer workflow (Run) {.nostretch .smaller}
+
+interactive (qrsh) session
+
+```{.bash}
+qrsh -l h_data=5G
+module load apptainer/1.0.0
+apptainer exec mypython.sif python3 test.py
+```
+
+Batch (qsub) job
+
+```{.bash}
+cat << EOF >> myjob.job
+module load apptainer/1.0.0
+apptainer exec mypython.sif python3 test.py
+EOF
+qsub -l h_data=5G myjob.job
+```
+
+![](diagram-run.png){width="1000px" height="250px"}
+
+## Common Usage
+
+On Hoffman2, to use apptainer, all you need to do is load the module
+
+```{.bash}
+module load apptainer/1.0.0
+```
+
+-   Only module you need to load!
+    - No need to load tons of modules to run a single application
+    -   Expect MPI module if running parallel 
+        - `module load intel/2022.1.1`
+
+::: {.fragment}
+Common Apptainer commands:
+
+-   Getting a container from somewhere
+
+```{.bash}
+apptainer pull [options]
+apptainer pull docker://ubuntu:22.04
+```
+
+-   Build a container
+
+```{.bash}
+apptainer build [options]
+apptainer build myapp.sif myapp.def
+```
+
+- Run a single command inside of a container 
+
+```{.bash}
+apptainer exec [options]
+apptainer exec myapp.sif MYCOMMAND
+```
+
+- Run the container with a predefined script 
+
+```{.bash}
+apptainer run [options]
+apptainer run myapp.sif "SCRIPT ARGRMENTS"
+```
+
+:::
+
+# Example 1: Basic TensorFlow
+
+Running simple container with Apptainer
+
+## Tensorflow Container
+
+This example will use [Tensorflow](https://www.tensorflow.org/)
+
+A great library for develop Machine Learning models
+
+-   Go to `EX1` directory
+-   Look at `tf-example.py`
+    -   Simple example to train
+        [MNIST](http://yann.lecun.com/exdb/mnist/) dataset
+
+::: fragment
+To run this job, we will run
+
+```{.bash}
+python3 tf-example.py
+```
+
+Need tensorflow!!!
+
+-   Instead of installing it yourself, let is find a container
+
+Visit [DockerHub](https://hub.docker.com/)
+:::
+
+## TensorFlow (interactive)
+
+Running on Hoffman2
+
+-   Start an interactive session
+
+```{.bash}
+qrsh -l h_data=10G
+```
+
+-   load the apptainer module
+
+```{.bash}
+module load apptainer/1.0.0
+```
+
+-   pull the TensorFlow container from DockerHub
+
+```{.bash}
+apptainer pull docker://tensorflow/tensorflow:2.7.1
+```
+
+-   We see a SIF file named, tensorflow_2.7.1.sif
+
+-   Start an interactive shell **INSIDE** the container
+
+```{.bash}
+apptainer shell tensorflow_2.7.1.sif
+python3 tf-example.py
+```
+
+## TensorFlow (batch)
+
+Run a command inside the container
+
+```{.bash}
+qrsh -l h_data=10G
+module load apptainer/1.0.0
+apptainer pull docker://tensorflow/tensorflow:2.7.1
+apptainer exec tensorflow_2.7.1.sif python3 tf-example.py
+```
+
+::: fragment
+Alternatively, you can submit this as a batch job
+
+-   Example job script: `tf-example.job`
+
+```{.bash}
+qsub tf-example.job
+```
+:::
+
+::: fragment
+NOTE:
+
+-   See that we didn't need to load any python module!
+-   We didn't need to install any TF packages ourselves!!
+:::
+
+# Example 2: Create writable containers
+
+# Pytorch
+
+This example uses [PyTorch](https://pytorch.org/) which is a great
+Machine Learning framework
+
+This example will create a container by installing software inside of a
+container interactively
+
+For this example, you will need Apptainer installed on a machine that
+you have admin/sudo access.
+
+You can find information on installing Apptainer under their [Admin
+Guide](https://apptainer.org/docs/admin/main/installation.html)
+
+You can also use the Container.ova image that can be opened on
+VirtualBox
+
+## Creating the container
+
+We will first need to start building the container from an existing
+container on our local machine
+
+```{.bash}
+sudo apptainer build --sandbox ubuntu_22.04_SB/ docker://ubuntu:22.04
+```
+
+This will create a **sandbox** image of the base ubuntu 22.04 image. The
+sandbox image is a writable directory that we can modify and install
+software.
+
+Next, we will start an **WRIATABLE** interactive shell session in the
+sandbox image
+
+```{.bash}
+sudo apptainer shell --writable ubuntu_22.04_SB/
+```
+
+From here, we can run any commands we need to install PyTorch.
+
+```{.bash}
+apt update
+apt install -y python3 python3-pip
+pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
+```
+
+Convert sandbox container to SIF file
+
+```{.bash}
+sudo apptainer build pytorch.sif ubuntu_22.04_SB/
+```
+
+## Running our container
+
+Run our SIF container
+
+```{.bash}
+apptainer exec pytorch.sif python3 pytorch.py
+```
+
+We do not need to be root since we are just running python3.
+
+Transferring our container
+
+```{.bash}
+scp pytorch.sif hoffman2.idre.ucla.edu:
+```
+
+Example job script to run on Hoffman2
+
+```{.bash}
+qsub pytorch.job
+```
+
+# Example 3: Building from definition files
+
+Look at EX3
+
+## Creating containers
+
+I coded a chemistry app located on github. 
+
+- This was a very early attempt
+for me to learn Hartree-Fock.
+
+-   <https://github.com/charliecpeterson/QUILL>
+
+We need:
+
+-   Python with the PySCF package
+-   Eigen3, a Linear Algebra library
+
+![](quill.jpeg){.absolute top="250" right="0" width="200" height="250"}
+
+::: columns
+::: {.column .fragment width="50%"}
+Instead of installing these dependencies on H2 (or looking for modules),
+lets build a container!!
+:::
+
+::: {.column .fragment width="50%"}
+We will build this container by:
+
+-   Using a definition file (.def)
+-   Using Docker/Podman (Dockerfile)
+:::
+:::
+
+## Apptainer Definition file {.smaller}
+
+The `quill.def` file has all steps needed to build the QUILL container.
+
+``` {.bash code-line-numbers="|1-2|4-5|7-22|24-25"}
+Bootstrap: docker
+From: ubuntu:20.04
+
+%labels
+Author Charles Peterson <cpeterson@oarc.ucla.edu>
+
+%post
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+   git python3 python3-dev python3-pip \
+   libeigen3-dev ca-certificates cmake make gcc g++
+rm -rf /var/lib/apt/lists/*
+
+pip3 install pyscf
+ln -s /usr/bin/python3 /usr/bin/python
+mkdir -pv /apps
+cd /apps
+git clone https://github.com/charliecpeterson/QUILL
+cd QUILL
+mkdir build ; cd build
+cmake ..
+make
+
+%environment
+export PATH=/apps/QUILL/build:$PATH
+```
+
+Sections:
+
+- Bootstrap/From - Location of starting container
+-   `%labels` - adds metadata
+-   `%post` - This section runs commands to setup the final container
+-   `%environment` - define environment variables inside container
+
+## Create container
+
+The `quill.sif` container is created
+
+```{.bash}
+sudo apptainer build quill.sif quill.def
+```
+
+::: fragment
+Let us test the container
+
+- We want to run the command `QUILL.x test.inp` inside the container
+
+```{.bash}
+apptainer exec quill.sif  QUILL.x test.inp
+```
+:::
+
+::: fragment
+Move container to Hoffman2
+
+```{.bash}
+scp quill.sif H2USERNAME@hoffman2.idre.ucla.edu:
+```
+:::
+
+## Building using Docker/Podman
+
+You can also use Docker or Podman to create containers for apptainer.
+
+<br/><br/>
+
+I will be using Podman. BUT if you want to use Docker instead, just
+replace the command `podman` with `docker`. The syntax is exactly the
+same!!
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```{.bash}
+docker build
+docker images
+docker pull
+docker run
+```
+:::
+
+::: {.column width="50%"}
+```{.bash}
+podman build
+podman images
+podman pull
+podman run
+```
+:::
+
+:::
+
+## Dockerfile 
+
+The `Dockerfile-quill` file is used by Docker to create the container
+
+```{.bash}
+FROM ubuntu:20.04
+
+## Author Charles Peterson <cpeterson@arc.ucla.edu>
+
+RUN apt-get update \
+     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+   git python3 python3-dev python3-pip \
+   libeigen3-dev ca-certificates cmake make gcc g++ \
+   && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install pyscf ; ln -s /usr/bin/python3 /usr/bin/python
+
+RUN mkdir -pv /apps \
+    && cd /apps \
+    && git clone https://github.com/charliecpeterson/QUILL \
+    && cd QUILL \
+    && mkdir build ; cd build \
+    && cmake .. ; make
+
+ENV PATH=/apps/QUILL/build:$PATH
+```
+
+## Create container
+
+Create container
+
+```{.bash}
+podman build . -t quill:1.0 -f Dockerfile-quill
+```
+
+See built docker (podman) container
+
+```{.bash}
+podman image list
+```
+
+Save docker (podman) image to apptainer container
+
+```{.bash}
+podman save quill:1.0 > quill.tar
+apptainer build quill.sif docker-archive://quill.tar
+scp quill.sif H2USERNAME@hoffman2.idre.ucla.edu:
+```
+
+## Container Registry
+
+In the previous slides, we created a SIF file (quill.sif), then transfer
+it to Hoffman2.
+
+<br/>
+
+Instead of this, we can upload our container to a **Container Registry**.
+
+
+- These **Registries** are used store our containers on a remote, cloud server that can then be pulled/download anywhere that has apptainer.
+
+    - DockerHub
+    - GitHub Packages
+
+## DockerHub
+
+Lets create a repo on [DockerHub](https://hub.docker.com/)
+
+Then push our docker/podman container to DockerHub
+
+- Registry location `docker.io`
+
+```{.bash}
+# Named our container to DockerHub locaton
+podman tag quill:1.0 docker.io/charliecpeterson/quill:1.0
+# Save DockerHub login info
+podman login docker.io
+# Push our final container to DockerHub
+podman push docker.io/charliecpeterson/quill:1.0
+```
+
+Then pull the container on Hoffman2
+
+```{.bash}
+apptainer pull docker://docker.io/charliecpeterson/quill:1.0
+```
+
+## GitHub Packages
+
+Lets create a repo on [GitHub](https://github.com/) - Look for the
+Packages tab
+
+- Pretty much the same, expect registry location is `ghcr.io`
+
+```{.bash}
+# Named our container to GitHub locaton
+podman tag quill:1.0 ghcr.io/charliecpeterson/quill:1.0
+# Save GitHub login info
+podman login ghcr.io
+# Push our final container to GitHub
+podman push ghcr.io/charliecpeterson/quill:1.0
+```
+
+Then pull the container on Hoffman2
+
+```{.bash}
+apptainer pull docker://ghcr.io/charliecpeterson/quill:1.0
+```
+
+DockerHub and GitHub Packages are popular cloud registries. You can
+create and deploy a local container registry. 
+
+- <https://docs.docker.com/registry/deploying/>
+
+## Running Container
+
+Once the container is on Hoffman2, submit job.
+
+```{.bash}
+#!/bin/bash
+#$ -cwd
+#$ -o quill.$JOB_ID
+#$ -j y
+#$ -l h_rt=1:00:00,h_data=5G
+#$ -pe shared 1
+#$ -l arch=intel-gold*
+
+# load the job environment:
+. /u/local/Modules/default/init/modules.sh
+module load apptainer/1.0.0
+
+# Container part: apptainer exec QUILL.sif
+# Command: QUILL.x /apps/QUILL/input.inp
+time apptainer exec quill.sif QUILL.x test.inp
+```
+
+Submit job script
+
+```{.bash}
+qsub test.job
+```
+
+::: fragment
+More information on using Definition files
+
+-   <https://apptainer.org/docs/user/1.0/definition_files.html>
+
+More information on using Dockerfiles
+
+-   <https://docs.docker.com/engine/reference/builder/>
+:::
+
+# Example 4: Anaconda
+
+Anaconda is a very popular python and R distributaion for simplifying package installation 
+
+- Check out my [Hoffman2 Happy Hour on Anaconda](https://github.com/ucla-oarc-hpc/hpc_workshops/tree/master/H2HH_anaconda_06292022) on our GitHub workshop page
+
+
+Though Anaconda can be tricky installing in a container due to environment setup.
+
+We will have an example using Anaconda to install an application in a container.
+
+
+## Building H2O 
+
+We will go over creating a definition file for a example with Anaconda.
+
+<br/>
+
+We will install the software [h2o.ai](https://h2o.ai/). This is a great
+machine learning platform that has Python and R libraries.
+
+<br/>
+
+In this example, we will use Anaconda to install h2o packages inside
+python and R.
+
+
+## H2o definition file {.smaller}
+
+The `h2o.def` file
+
+-   Definition file for Apptainer
+-   Install Anaconda from an env.yml
+-   Use of `%runscript` to setup Anaconda env for `apptainer run`
+    - the `$@` take arguments as a string from the command line
+    - `apptainer run h2o.sif "R CMD BATCH h2o.R"` 
+
+```{.bash code-line-numbers="|1-2|5-6|9-209|211-214"}
+Bootstrap: docker
+From: ubuntu:22.04
+
+
+%labels
+Author Charles Peterson <cpeterson@oarc.ucla.edu>
+
+
+%post
+export DEBIAN_FRONTEND=noninteractive
+apt -y update ; apt -y upgrade 
+apt install -y  libxml2-dev libbz2-dev wget git gcc  libreadline-dev zlib1g-dev default-jre default-jdk
+
+#Install anaconda
+cd /tmp
+wget https://repo.anaconda.com/archive/Anaconda3-2022.05-Linux-x86_64.sh
+bash Anaconda3-2022.05-Linux-x86_64.sh -b -p /opt/anaconda
+cat << EOF1 > environment.yml
+name: h2oai
+channels:
+  - h2oai
+  - conda-forge
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=conda_forge
+  - _openmp_mutex=4.5=2_gnu
+  - _r-mutex=1.0.0=anacondar_1
+  - _sysroot_linux-64_curr_repodata_hack=3=haa98f57_10
+  - anyio=3.6.1=py38h578d9bd_0
+  - argon2-cffi=21.3.0=pyhd8ed1ab_0
+  - argon2-cffi-bindings=21.2.0=py38h0a891b7_2
+  - asttokens=2.0.5=pyhd8ed1ab_0
+  - attrs=21.4.0=pyhd8ed1ab_0
+  - babel=2.10.2=pyhd8ed1ab_0
+  - backcall=0.2.0=pyh9f0ad1d_0
+  - backports=1.0=py_2
+  - backports.functools_lru_cache=1.6.4=pyhd8ed1ab_0
+  - beautifulsoup4=4.11.1=pyha770c72_0
+  - binutils_impl_linux-64=2.38=h2a08ee3_1
+  - binutils_linux-64=2.38.0=hc2dff05_0
+  - blas=1.0=openblas
+  - bleach=5.0.0=pyhd8ed1ab_0
+  - brotlipy=0.7.0=py38h0a891b7_1004
+  - bwidget=1.9.11=1
+  - bzip2=1.0.8=h7f98852_4
+  - c-ares=1.18.1=h7f8727e_0
+  - ca-certificates=2022.4.26=h06a4308_0
+  - cairo=1.16.0=h19f5f5c_2
+  - certifi=2022.5.18.1=py38h06a4308_0
+  - cffi=1.15.0=py38hd667e15_1
+  - charset-normalizer=2.0.12=pyhd8ed1ab_0
+  - cryptography=37.0.2=py38h2b5fc30_0
+  - curl=7.82.0=h7f8727e_0
+  - debugpy=1.6.0=py38hfa26641_0
+  - decorator=5.1.1=pyhd8ed1ab_0
+  - defusedxml=0.7.1=pyhd8ed1ab_0
+  - entrypoints=0.4=pyhd8ed1ab_0
+  - executing=0.8.3=pyhd8ed1ab_0
+  - flit-core=3.7.1=pyhd8ed1ab_0
+  - fontconfig=2.13.1=h6c09931_0
+  - freetype=2.11.0=h70c0345_0
+  - fribidi=1.0.10=h7b6447c_0
+  - future=0.18.2=py38h578d9bd_5
+  - gcc_impl_linux-64=11.2.0=h1234567_1
+  - gcc_linux-64=11.2.0=h5c386dc_0
+  - gfortran_impl_linux-64=11.2.0=h1234567_1
+  - gfortran_linux-64=11.2.0=hc2dff05_0
+  - glib=2.69.1=h4ff587b_1
+  - graphite2=1.3.14=h295c915_1
+  - gxx_impl_linux-64=11.2.0=h1234567_1
+  - gxx_linux-64=11.2.0=hc2dff05_0
+  - h2o=3.36.1.2=py38_0
+  - harfbuzz=2.8.1=h6f93f22_0
+  - icu=58.2=he6710b0_3
+  - idna=3.3=pyhd8ed1ab_0
+  - importlib-metadata=4.11.4=py38h578d9bd_0
+  - importlib_metadata=4.11.4=hd8ed1ab_0
+  - importlib_resources=5.7.1=pyhd8ed1ab_1
+  - ipykernel=6.14.0=py38h7f3c49e_0
+  - ipython=8.4.0=py38h578d9bd_0
+  - ipython_genutils=0.2.0=py_1
+  - jedi=0.18.1=py38h578d9bd_1
+  - jinja2=3.1.2=pyhd8ed1ab_1
+  - joblib=1.1.0=pyhd8ed1ab_0
+  - jpeg=9e=h7f8727e_0
+  - json5=0.9.5=pyh9f0ad1d_0
+  - jsonschema=4.6.0=pyhd8ed1ab_0
+  - jupyter_client=7.3.4=pyhd8ed1ab_0
+  - jupyter_core=4.10.0=py38h578d9bd_0
+  - jupyter_server=1.17.1=pyhd8ed1ab_0
+  - jupyterlab=3.4.3=pyhd8ed1ab_0
+  - jupyterlab_pygments=0.2.2=pyhd8ed1ab_0
+  - jupyterlab_server=2.14.0=pyhd8ed1ab_0
+  - kernel-headers_linux-64=3.10.0=h57e8cba_10
+  - krb5=1.19.2=hac12032_0
+  - ld_impl_linux-64=2.38=h1181459_1
+  - libblas=3.9.0=15_linux64_openblas
+  - libcblas=3.9.0=15_linux64_openblas
+  - libcurl=7.82.0=h0b77cf5_0
+  - libedit=3.1.20210910=h7f8727e_0
+  - libev=4.33=h7f8727e_1
+  - libffi=3.3=he6710b0_2
+  - libgcc-devel_linux-64=11.2.0=h1234567_1
+  - libgcc-ng=12.1.0=h8d9b700_16
+  - libgfortran-ng=11.2.0=h00389a5_1
+  - libgfortran5=11.2.0=h1234567_1
+  - libgomp=12.1.0=h8d9b700_16
+  - liblapack=3.9.0=15_linux64_openblas
+  - libnghttp2=1.46.0=hce63b2e_0
+  - libnsl=2.0.0=h7f98852_0
+  - libopenblas=0.3.20=pthreads_h78a6416_0
+  - libpng=1.6.37=hbc83047_0
+  - libsodium=1.0.18=h36c2ea0_1
+  - libssh2=1.10.0=h8f2d780_0
+  - libstdcxx-devel_linux-64=11.2.0=h1234567_1
+  - libstdcxx-ng=12.1.0=ha89aaad_16
+  - libtiff=4.2.0=h2818925_1
+  - libuuid=1.0.3=h7f8727e_2
+  - libwebp-base=1.2.2=h7f8727e_0
+  - libxcb=1.15=h7f8727e_0
+  - libxml2=2.9.14=h74e7548_0
+  - libzlib=1.2.12=h166bdaf_1
+  - lz4-c=1.9.3=h295c915_1
+  - make=4.2.1=h1bed415_1
+  - markupsafe=2.1.1=py38h0a891b7_1
+  - matplotlib-inline=0.1.3=pyhd8ed1ab_0
+  - mistune=0.8.4=py38h497a2fe_1005
+  - nbclassic=0.3.7=pyhd8ed1ab_0
+  - nbclient=0.6.4=pyhd8ed1ab_1
+  - nbconvert=6.5.0=pyhd8ed1ab_0
+  - nbconvert-core=6.5.0=pyhd8ed1ab_0
+  - nbconvert-pandoc=6.5.0=pyhd8ed1ab_0
+  - nbformat=5.4.0=pyhd8ed1ab_0
+  - ncurses=6.3=h27087fc_1
+  - nest-asyncio=1.5.5=pyhd8ed1ab_0
+  - notebook=6.4.12=pyha770c72_0
+  - notebook-shim=0.1.0=pyhd8ed1ab_0
+  - numpy=1.22.4=py38h99721a1_0
+  - openssl=1.1.1o=h7f8727e_0
+  - packaging=21.3=pyhd8ed1ab_0
+  - pandas=1.4.2=py38h47df419_2
+  - pandoc=2.18=ha770c72_0
+  - pandocfilters=1.5.0=pyhd8ed1ab_0
+  - pango=1.45.3=hd140c19_0
+  - parso=0.8.3=pyhd8ed1ab_0
+  - pcre=8.45=h295c915_0
+  - pcre2=10.37=he7ceb23_1
+  - pexpect=4.8.0=pyh9f0ad1d_2
+  - pickleshare=0.7.5=py_1003
+  - pip=22.1.2=pyhd8ed1ab_0
+  - pixman=0.40.0=h7f8727e_1
+  - prometheus_client=0.14.1=pyhd8ed1ab_0
+  - prompt-toolkit=3.0.29=pyha770c72_0
+  - psutil=5.9.1=py38h0a891b7_0
+  - ptyprocess=0.7.0=pyhd3deb0d_0
+  - pure_eval=0.2.2=pyhd8ed1ab_0
+  - pycparser=2.21=pyhd8ed1ab_0
+  - pygments=2.12.0=pyhd8ed1ab_0
+  - pyopenssl=22.0.0=pyhd8ed1ab_0
+  - pyparsing=3.0.9=pyhd8ed1ab_0
+  - pyrsistent=0.18.1=py38h0a891b7_1
+  - pysocks=1.7.1=py38h578d9bd_5
+  - python=3.8.13=h12debd9_0
+  - python-dateutil=2.8.2=pyhd8ed1ab_0
+  - python-fastjsonschema=2.15.3=pyhd8ed1ab_0
+  - python_abi=3.8=2_cp38
+  - pytz=2022.1=pyhd8ed1ab_0
+  - pyzmq=23.1.0=py38hfc09fa9_0
+  - r-base=4.2.0=h1ae530e_0
+  - r-essentials=0.1.0=r42h76d94ec_0
+  - readline=8.1.2=h0f457ee_0
+  - requests=2.28.0=pyhd8ed1ab_0
+  - scikit-learn=1.1.1=py38hf80bbf7_0
+  - scipy=1.8.1=py38h1ee437e_0
+  - send2trash=1.8.0=pyhd8ed1ab_0
+  - setuptools=62.3.4=py38h578d9bd_0
+  - six=1.16.0=pyh6c4a22f_0
+  - sniffio=1.2.0=py38h578d9bd_3
+  - soupsieve=2.3.1=pyhd8ed1ab_0
+  - sqlite=3.38.5=h4ff8645_0
+  - stack_data=0.3.0=pyhd8ed1ab_0
+  - sysroot_linux-64=2.17=h57e8cba_10
+  - tabulate=0.8.9=pyhd8ed1ab_0
+  - terminado=0.15.0=py38h578d9bd_0
+  - threadpoolctl=3.1.0=pyh8a188c0_0
+  - tinycss2=1.1.1=pyhd8ed1ab_0
+  - tk=8.6.12=h27826a3_0
+  - tktable=2.10=h14c3975_0
+  - tornado=6.1=py38h0a891b7_3
+  - traitlets=5.2.2.post1=pyhd8ed1ab_0
+  - urllib3=1.26.9=pyhd8ed1ab_0
+  - wcwidth=0.2.5=pyh9f0ad1d_2
+  - webencodings=0.5.1=py_1
+  - websocket-client=1.3.2=pyhd8ed1ab_0
+  - wheel=0.37.1=pyhd8ed1ab_0
+  - xz=5.2.5=h516909a_1
+  - zeromq=4.3.4=h9c3ff4c_1
+  - zipp=3.8.0=pyhd8ed1ab_0
+  - zlib=1.2.12=h166bdaf_1
+  - zstd=1.5.2=ha4553b6_0
+prefix: /opt/anaconda/envs/h2oai
+EOF1
+bash -c "source /opt/anaconda/etc/profile.d/conda.sh
+conda env create -f environment.yml
+conda activate h2oai
+R -e 'install.packages(\"RCurl\",dependencies = TRUE,repos=\"http://cran.r-project.org\")'
+R -e 'install.packages(\"jsonlite\",dependencies = TRUE,repos=\"http://cran.r-project.org\")'
+R -e 'install.packages(\"h2o\", type=\"source\", repos=(c(\"http://h2o-release.s3.amazonaws.com/h2o/latest_stable_R\")))'
+"
+
+%runscript
+exec bash -c "source /opt/anaconda/etc/profile.d/conda.sh
+conda activate h2oai
+$@"
+```
+
+## Building container
+
+Create h2o.sif
+
+```{.bash}
+sudo apptainer build h2o.sif h2o.def
+```
+
+Run h2o.R inside the container
+
+```{.bash}
+apptainer run h2o.sif "Rscript h2o.R"
+```
+
+::: callout-note
+The command `apptainer exec foo.sif COMMAND` will run a single COMMAND
+inside the container. The runscript will NOT be ran with the COMMAND.
+
+The command `apptainer run foo.sif` will run the runscript inside the
+container
+:::
+
+
+# Example 5: RStudio and Jupyter
+
+## Jupyter {.smaller}
+
+This example will create a Jupyter session on Hoffman.
+
+You can create a container with Jupyter and have any package you want.
+
+We will use a container already build with python 3.8 and install
+jupyter, seaborn and pandas packages.
+
+```{.bash}
+sudo apptainer build jupyter.sif jupyter.def 
+scp jupyter.sif hoffman2.idre.ucla.edu:
+```
+
+Start Jupyter on Hoffman2
+
+```{.bash}
+qrsh -l h_data=10G
+module load apptainer
+hostname
+apptainer exec jupyter.sif jupyter lab --ip 0.0.0.0
+```
+
+Keep note of the hostname of the node you landed on. Then you your local
+machine
+
+```{.bash}
+ssh  -L 8888:nXXX:8888 username@hoffman2.idre.ucla.edu 
+#Where nXXXX is the compute node you landed on.
+
+# Then open a web browser and type
+http://localhost:8888 #or whatever port number that was displayed
+#Note that you may need to change port 8888 if jupyter used a different port
+```
+
+::: callout-note
+
+We started jupyter inside the container by running
+
+`apptainer exec jupyter.sif jupyter lab --ip 0.0.0.0`
+
+:::
+## Rstudio {.smaller}
+
+Like Jupyter, you can use Rstudio Server to open a Rstudio session on
+your web browser.
+
+I hosted a [H2HH
+session](https://github.com/ucla-oarc-hpc/hpc_workshops) on using
+Rstudio Server on Hoffman2 previously.
+
+Create this container using Docker/Podman
+
+```{.bash}
+podman build -f Dockerfile-rstudio -t rstudio:4.1.0 .
+podman save rstudio:4.1.0 > rstudio.tar
+apptainer build rstudio.sif docker-archive://rstudio.tar
+scp rstudio.sif hoffman2.idre.ucla.edu
+```
+
+```{.bash}
+# get an interactive job
+qrsh -l h_data=10G
+# Create tmp directories
+mkdir -pv $SCRATCH/rstudiotmp/var/lib
+mkdir -pv $SCRATCH/rstudiotmp/var/run
+mkdir -pv $SCRATCH/rstudiotmp/tmp
+#Setup apptainer
+module load apptainer/1.0.0
+#Run rstudio
+apptainer run -B $SCRATCH/rstudiotmp/var/lib:/var/lib/rstudio-server -B $SCRATCH/rstudiotmp/var/run:/var/run/rstudio-server -B $SCRATCH/rstudiotmp/tmp:/tmp rstudio.sif
+# This command will display some information and a `ssh -L ...` command for you to run on a separate terminal 
+```
+
+```{.bash}
+ssh  -L 8787:nXXX:8787 username@hoffman2.idre.ucla.edu # Or whatever command was displayed earlier 
+# Then open a web browser and type
+http://localhost:8787 #or whatever port number that was displayed
+```
+
+
+::: callout-note
+
+We started RStudio by running
+
+`apptainer run -B {tmp_dirs} rstudio.sif`
+
+In the DockerFile, the runscript had `rserver`
+
+:::
+
+
+# Example 6: Build/run env
+
+## Overview {.smaller}
+
+You may want to build a container with complex code required certain
+compilers MPI, and math libraries.
+
+This example will build a code with Intel OneAPI, which includes.
+
+-   Intel compilers
+-   MKL (math libraries)
+-   IntelMPI
+
+We will build the final container using `Multi-Stage` builds, where we
+will use two pre-built containers to compile and run code.
+
+-   `build` container
+    -   This container will have all the compilers, libraries, headers,
+        etc needed to compile come
+    -   Used to compile software and maybe very large in size
+-   `run` container
+    -   This container will **ONLY** have the libraries and execuatables
+        needed to run the code
+    -   Much smaller used to build the final container.
+
+## Build container {.smaller}
+
+This example creates a build container with GCC 10.3.0 and OneAPI
+2022.1.2
+
+`Docker-build` file
+
+```{.bash}
+# Base GCC/Oneapi building container image
+# Ubuntu 20.04
+# Charles Peterson <cpeterson@oarc.ucla.edu>
+# Created 1/2022
+# Updated 2/2022
+# updated 7/2022
+
+#Bulding Cmake
+FROM ubuntu:20.04 as buildcmake
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates curl  \
+    && rm -rf /var/lib/apt/lists/*
+RUN cd /opt  \
+    && curl -LO https://github.com/Kitware/CMake/releases/download/v3.20.2/cmake-3.20.2-linux-x86_64.sh \
+    && mkdir -p /opt/cmake  \
+    && /bin/bash cmake-3.20.2-linux-x86_64.sh --prefix=/opt/cmake --skip-license
+RUN rm -rf /opt/cmake/include \
+    && rm -rf /opt/cmake/lib/pkgconfig \
+    && find /opt -name "*.a" -exec rm -f {} \; || echo ""
+RUN rm -rf /opt/cmake/share/doc
+RUN rm -rf /opt/cmake/share/man
+RUN rm -rf /opt/cmake/man
+
+FROM ubuntu:20.04
+ENV gcc_VER=10.3.0
+
+RUN apt-get update  \
+    &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends binutils libc6-dev gpg-agent gnupg curl  ca-certificates  \
+    && curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | apt-key add - \
+    && echo "deb [trusted=yes] https://apt.repos.intel.com/oneapi all main " > /etc/apt/sources.list.d/oneAPI.list \
+    && apt-get update  \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    intel-oneapi-common-vars \
+    intel-oneapi-common-licensing \
+    intel-oneapi-compiler-dpcpp-cpp \
+    intel-oneapi-mkl-devel \
+    intel-oneapi-compiler-fortran \
+    intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic \
+    intel-oneapi-mpi-devel \
+    && rm -rf /var/lib/apt/lists/*  \
+    && apt-get remove -y curl ; apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+
+RUN apt-get update  \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libffi-dev gpg-agent dirmngr gnupg \
+    && savedAptMark="$(apt-mark showmanual)" \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends dpkg-dev bzip2 gcc g++ make wget curl flex \
+    && rm -rf /var/lib/apt/lists/* \
+    && cd /tmp ; wget https://ftp.gnu.org/gnu/gcc/gcc-${gcc_VER}/gcc-${gcc_VER}.tar.gz \
+    && tar -vxf gcc-${gcc_VER}.tar.gz ; rm gcc-${gcc_VER}.tar.gz \
+    && cd gcc-${gcc_VER} ; ./contrib/download_prerequisites;  rm *.tar.* || true \
+    && mkdir build ; cd build \
+    && ../configure --build=x86_64-linux-gnu --disable-multilib  --enable-languages=c,c++,fortran --prefix=/opt/gcc \
+    && make -j "$(nproc)" && make install-strip \
+    && cd /tmp ; rm -rf gcc-${gcc_VER} \
+    && apt-mark auto '.*' > /dev/null;  apt-mark manual $savedAptMark; apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+
+COPY --from=buildcmake /opt/cmake/ /opt/cmake/
+
+ENV TBBROOT=/opt/intel/oneapi/tbb/2021.6.0/env/..
+ENV ONEAPI_ROOT=/opt/intel/oneapi
+ENV PKG_CONFIG_PATH=/opt/intel/oneapi/tbb/2021.6.0/env/../lib/pkgconfig:/opt/intel/oneapi/mpi/2021.6.0/lib/pkgconfig:/opt/intel/oneapi/mkl/2022.1.0/lib/pkgconfig:/opt/intel/oneapi/dpl/2021.7.0/lib/pkgconfig:/opt/intel/oneapi/compiler/2022.1.0/lib/pkgconfig:/opt/intel/oneapi/tbb/lastest/env/../lib/pkgconfig:/opt/intel/oneapi/mpi/lastest/lib/pkgconfig:/opt/intel/oneapi/mkl/lastest/lib/pkgconfig:/opt/intel/oneapi/dpl/lastest/lib/pkgconfig:/opt/intel/oneapi/compiler/lastest/lib/pkgconfig:/opt/intel/oneapi/tbb/lastest/env/../lib/pkgconfig:/opt/intel/oneapi/mpi/lastest/lib/pkgconfig:/opt/intel/oneapi/mkl/lastest/lib/pkgconfig:/opt/intel/oneapi/dpl/lastest/lib/pkgconfig:/opt/intel/oneapi/compiler/lastest/lib/pkgconfig
+ENV ACL_BOARD_VENDOR_PATH=/opt/Intel/OpenCLFPGA/oneAPI/Boards
+ENV FPGA_VARS_DIR=/opt/intel/oneapi/compiler/2022.1.0/linux/lib/oclfpga
+ENV I_MPI_ROOT=/opt/intel/oneapi/mpi/2021.6.0
+ENV FI_PROVIDER_PATH=/opt/intel/oneapi/mpi/2021.6.0//libfabric/lib/prov:/usr/lib64/libfabric
+ENV DIAGUTIL_PATH=/opt/intel/oneapi/debugger/2021.6.0/sys_check/debugger_sys_check.py:/opt/intel/oneapi/compiler/2022.1.0/sys_check/sys_check.sh
+ENV DPL_ROOT=/opt/intel/oneapi/dpl/2021.7.0
+ENV LD_LIBRARY_LD=/opt/gcc/lib64/:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/libipt/intel64/lib:/opt/intel/oneapi/debugger/lastest/dep/lib:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/compiler/lastest/linux/lib/x64:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/libipt/intel64/lib:/opt/intel/oneapi/debugger/lastest/dep/lib:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/compiler/lastest/linux/lib/x64:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin
+ENV MANPATH=/opt/intel/oneapi/mpi/2021.6.0/man:/opt/intel/oneapi/debugger/2021.6.0/documentation/man:/opt/intel/oneapi/compiler/2022.1.0/documentation/en/man/common:/opt/intel/oneapi/mpi/lastest/man:/opt/intel/oneapi/debugger/lastest/documentation/man:/opt/intel/oneapi/compiler/lastest/documentation/en/man/common:/opt/intel/oneapi/mpi/lastest/man:/opt/intel/oneapi/debugger/lastest/documentation/man:/opt/intel/oneapi/compiler/lastest/documentation/en/man/common::::
+ENV GDB_INFO=/opt/intel/oneapi/debugger/2021.6.0/documentation/info/:/opt/intel/oneapi/debugger/lastest/documentation/info/:/opt/intel/oneapi/debugger/lastest/documentation/info/
+ENV CMAKE_PREFIX_PATH=/opt/intel/oneapi/tbb/2021.6.0/env/..:/opt/intel/oneapi/compiler/2022.1.0/linux/IntelDPCPP:/opt/intel/oneapi/tbb/lastest/env/..:/opt/intel/oneapi/compiler/lastest/linux/IntelDPCPP:/opt/intel/oneapi/tbb/lastest/env/..:/opt/intel/oneapi/compiler/lastest/linux/IntelDPCPP
+ENV CMPLR_ROOT=/opt/intel/oneapi/compiler/2022.1.0
+ENV INFOPATH=/opt/intel/oneapi/debugger/2021.6.0/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib
+ENV LIBRARY_PATH=/opt/intel/oneapi/tbb/2021.6.0/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/2021.6.0//libfabric/lib:/opt/intel/oneapi/mpi/2021.6.0//lib/release:/opt/intel/oneapi/mpi/2021.6.0//lib:/opt/intel/oneapi/mkl/2022.1.0/lib/intel64:/opt/intel/oneapi/compiler/2022.1.0/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/compiler/2022.1.0/linux/lib:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/compiler/lastest/linux/lib
+ENV gcc_VER=10.3.0
+ENV LD_LIBRARY_PATH=/opt/intel/oneapi/tbb/2021.6.0/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/2021.6.0//libfabric/lib:/opt/intel/oneapi/mpi/2021.6.0//lib/release:/opt/intel/oneapi/mpi/2021.6.0//lib:/opt/intel/oneapi/mkl/2022.1.0/lib/intel64:/opt/intel/oneapi/debugger/2021.6.0/gdb/intel64/lib:/opt/intel/oneapi/debugger/2021.6.0/libipt/intel64/lib:/opt/intel/oneapi/debugger/2021.6.0/dep/lib:/opt/intel/oneapi/compiler/2022.1.0/linux/lib:/opt/intel/oneapi/compiler/2022.1.0/linux/lib/x64:/opt/intel/oneapi/compiler/2022.1.0/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/2022.1.0/linux/compiler/lib/intel64_lin:/opt/gcc/lib64:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/libipt/intel64/lib:/opt/intel/oneapi/debugger/lastest/dep/lib:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/compiler/lastest/linux/lib/x64:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/libipt/intel64/lib:/opt/intel/oneapi/debugger/lastest/dep/lib:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/compiler/lastest/linux/lib/x64:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin
+ENV MKLROOT=/opt/intel/oneapi/mkl/2022.1.0
+ENV NLSPATH=/opt/intel/oneapi/mkl/2022.1.0/lib/intel64/locale/%l_%t/%N:/opt/intel/oneapi/compiler/2022.1.0/linux/compiler/lib/intel64_lin/locale/%l_%t/%N:/opt/intel/oneapi/mkl/lastest/lib/intel64/locale/%l_%t/%N:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin/locale/%l_%t/%N:/opt/intel/oneapi/mkl/lastest/lib/intel64/locale/%l_%t/%N:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin/locale/%l_%t/%N
+ENV PATH=/opt/intel/oneapi/mpi/2021.6.0//libfabric/bin:/opt/intel/oneapi/mpi/2021.6.0//bin:/opt/intel/oneapi/mkl/2022.1.0/bin/intel64:/opt/intel/oneapi/dev-utilities/2021.6.0/bin:/opt/intel/oneapi/debugger/2021.6.0/gdb/intel64/bin:/opt/intel/oneapi/compiler/2022.1.0/linux/lib/oclfpga/bin:/opt/intel/oneapi/compiler/2022.1.0/linux/bin/intel64:/opt/intel/oneapi/compiler/2022.1.0/linux/bin:/opt/intel/oneapi/mpi/lastest//libfabric/bin:/opt/intel/oneapi/mpi/lastest//bin:/opt/intel/oneapi/mkl/lastest/bin/intel64:/opt/intel/oneapi/dev-utilities/lastest/bin:/opt/intel/oneapi/debugger/lastest/gdb/intel64/bin:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/bin:/opt/intel/oneapi/compiler/lastest/linux/bin/intel64:/opt/intel/oneapi/compiler/lastest/linux/bin:/opt/gcc/bin/:/opt/cmake/bin/:/opt/intel/oneapi/mpi/lastest//libfabric/bin:/opt/intel/oneapi/mpi/lastest//bin:/opt/intel/oneapi/mkl/lastest/bin/intel64:/opt/intel/oneapi/dev-utilities/lastest/bin:/opt/intel/oneapi/debugger/lastest/gdb/intel64/bin:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/bin:/opt/intel/oneapi/compiler/lastest/linux/bin/intel64:/opt/intel/oneapi/compiler/lastest/linux/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV INTEL_PYTHONHOME=/opt/intel/oneapi/debugger/2021.6.0/dep
+ENV CPATH=/opt/intel/oneapi/tbb/2021.6.0/env/../include:/opt/intel/oneapi/mpi/2021.6.0//include:/opt/intel/oneapi/mkl/2022.1.0/include:/opt/intel/oneapi/dpl/2021.7.0/linux/include:/opt/intel/oneapi/dev-utilities/2021.6.0/include:/opt/intel/oneapi/tbb/lastest/env/../include:/opt/intel/oneapi/mpi/lastest//include:/opt/intel/oneapi/mkl/lastest/include:/opt/intel/oneapi/dpl/lastest/linux/include:/opt/intel/oneapi/dev-utilities/lastest/include:/opt/intel/oneapi/tbb/lastest/env/../include:/opt/intel/oneapi/mpi/lastest//include:/opt/intel/oneapi/mkl/lastest/include:/opt/intel/oneapi/dpl/lastest/linux/include:/opt/intel/oneapi/dev-utilities/lastest/include
+```
+
+Build and push build container
+
+```{.bash}
+podman build -t docker.io/charliecpeterson/build:gcc10.3.0_oneapi -f Dockerfile-build .
+podman push docker.io/charliecpeterson/build:gcc10.3.0_oneapi
+```
+
+## Run container {.smaller}
+
+This container has only the RUNTIME libraries
+
+`Docker-run` file
+
+```{.bash}
+# Base GCC/Oneapi building container image
+# Ubuntu 20.04
+# Charles Peterson <cpeterson@oarc.ucla.edu>
+# Created 1/2022
+# Updated 2/2022
+# Updated 7/2022
+
+FROM ubuntu:20.04
+ENV gcc_VER=10.3.0
+
+
+RUN apt-get update  \
+    &&  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends binutils libc6-dev gpg-agent gnupg curl  ca-certificates  \
+    && curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | apt-key add - \
+    && echo "deb [trusted=yes] https://apt.repos.intel.com/oneapi all main " > /etc/apt/sources.list.d/oneAPI.list \
+    && apt-get update  \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    intel-oneapi-common-vars \
+    intel-oneapi-common-licensing \
+    intel-oneapi-runtime-mkl\
+    intel-oneapi-compiler-dpcpp-cpp-runtime \
+    intel-oneapi-compiler-fortran-runtime \
+    intel-oneapi-runtime-mpi \
+    && rm -rf /var/lib/apt/lists/*  \
+    && apt-get remove -y curl ; apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+    
+RUN apt-get update  \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends libffi-dev gpg-agent dirmngr gnupg \
+    && savedAptMark="$(apt-mark showmanual)" \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends dpkg-dev bzip2 gcc g++ make wget curl flex \
+    && rm -rf /var/lib/apt/lists/* \
+    && cd /tmp ; wget https://ftp.gnu.org/gnu/gcc/gcc-${gcc_VER}/gcc-${gcc_VER}.tar.gz \
+    && tar -vxf gcc-${gcc_VER}.tar.gz ; rm gcc-${gcc_VER}.tar.gz \
+    && cd gcc-${gcc_VER} ; ./contrib/download_prerequisites;  rm *.tar.* || true \
+    && mkdir build ; cd build \
+    && ../configure --build=x86_64-linux-gnu --disable-multilib  --enable-languages=c,c++,fortran --prefix=/opt/gcc \
+    && make -j "$(nproc)" && make install-strip \
+    && cd /tmp ; rm -rf gcc-${gcc_VER} \
+    && apt-mark auto '.*' > /dev/null;  apt-mark manual $savedAptMark; apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+
+RUN rm -rf /opt/gcc/bin ; rm -rf /opt/gcc/share
+
+ENV TBBROOT=/opt/intel/oneapi/tbb/2021.6.0/env/..
+ENV ONEAPI_ROOT=/opt/intel/oneapi
+ENV PKG_CONFIG_PATH=/opt/intel/oneapi/tbb/2021.6.0/env/../lib/pkgconfig:/opt/intel/oneapi/mpi/2021.6.0/lib/pkgconfig:/opt/intel/oneapi/compiler/2022.1.0/lib/pkgconfig:/opt/intel/oneapi/tbb/lastest/env/../lib/pkgconfig:/opt/intel/oneapi/mpi/lastest/lib/pkgconfig:/opt/intel/oneapi/mkl/lastest/lib/pkgconfig:/opt/intel/oneapi/dpl/lastest/lib/pkgconfig:/opt/intel/oneapi/compiler/lastest/lib/pkgconfig:/opt/intel/oneapi/tbb/lastest/env/../lib/pkgconfig:/opt/intel/oneapi/mpi/lastest/lib/pkgconfig:/opt/intel/oneapi/mkl/lastest/lib/pkgconfig:/opt/intel/oneapi/dpl/lastest/lib/pkgconfig:/opt/intel/oneapi/compiler/lastest/lib/pkgconfig
+ENV ACL_BOARD_VENDOR_PATH=/opt/Intel/OpenCLFPGA/oneAPI/Boards
+ENV FPGA_VARS_DIR=/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga
+ENV I_MPI_ROOT=/opt/intel/oneapi/mpi/2021.6.0
+ENV FI_PROVIDER_PATH=/opt/intel/oneapi/mpi/2021.6.0//libfabric/lib/prov:/usr/lib64/libfabric
+ENV DIAGUTIL_PATH=/opt/intel/oneapi/compiler/2022.1.0/sys_check/sys_check.sh
+ENV DPL_ROOT=/opt/intel/oneapi/dpl/lastest
+ENV LD_LIBRARY_LD=/opt/gcc/lib64/:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/libipt/intel64/lib:/opt/intel/oneapi/debugger/lastest/dep/lib:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/compiler/lastest/linux/lib/x64:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/libipt/intel64/lib:/opt/intel/oneapi/debugger/lastest/dep/lib:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/compiler/lastest/linux/lib/x64:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin
+ENV MANPATH=/opt/intel/oneapi/mpi/2021.6.0/man:/opt/intel/oneapi/compiler/2022.1.0/documentation/en/man/common:/opt/intel/oneapi/mpi/lastest/man:/opt/intel/oneapi/debugger/lastest/documentation/man:/opt/intel/oneapi/compiler/lastest/documentation/en/man/common:/opt/intel/oneapi/mpi/lastest/man:/opt/intel/oneapi/debugger/lastest/documentation/man:/opt/intel/oneapi/compiler/lastest/documentation/en/man/common::::
+ENV GDB_INFO=/opt/intel/oneapi/debugger/lastest/documentation/info/:/opt/intel/oneapi/debugger/lastest/documentation/info/
+ENV CMAKE_PREFIX_PATH=/opt/intel/oneapi/tbb/2021.6.0/env/..:/opt/intel/oneapi/compiler/2022.1.0/linux/IntelDPCPP:/opt/intel/oneapi/tbb/lastest/env/..:/opt/intel/oneapi/compiler/lastest/linux/IntelDPCPP:/opt/intel/oneapi/tbb/lastest/env/..:/opt/intel/oneapi/compiler/lastest/linux/IntelDPCPP
+ENV CMPLR_ROOT=/opt/intel/oneapi/compiler/2022.1.0
+ENV INFOPATH=/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib
+ENV LIBRARY_PATH=/opt/intel/oneapi/tbb/2021.6.0/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/2021.6.0//libfabric/lib:/opt/intel/oneapi/mpi/2021.6.0//lib/release:/opt/intel/oneapi/mpi/2021.6.0//lib:/opt/intel/oneapi/compiler/2022.1.0/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/compiler/2022.1.0/linux/lib:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/compiler/lastest/linux/lib
+ENV OCL_ICD_FILENAMES=/opt/intel/oneapi/compiler/2022.1.0/linux/lib/x64/libintelocl.so
+ENV CLASSPATH=/opt/intel/oneapi/mpi/2021.6.0//lib/mpi.jar:/opt/intel/oneapi/mpi/lastest//lib/mpi.jar:/opt/intel/oneapi/mpi/lastest//lib/mpi.jar
+ENV LD_LIBRARY_PATH=/opt/intel/oneapi/tbb/2021.6.0/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/2021.6.0//libfabric/lib:/opt/intel/oneapi/mpi/2021.6.0//lib/release:/opt/intel/oneapi/mpi/2021.6.0//lib:/opt/intel/oneapi/compiler/2022.1.0/linux/lib:/opt/intel/oneapi/compiler/2022.1.0/linux/lib/x64:/opt/intel/oneapi/compiler/2022.1.0/linux/compiler/lib/intel64_lin:/opt/gcc/lib64:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/libipt/intel64/lib:/opt/intel/oneapi/debugger/lastest/dep/lib:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/compiler/lastest/linux/lib/x64:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin:/opt/intel/oneapi/tbb/lastest/env/../lib/intel64/gcc4.8:/opt/intel/oneapi/mpi/lastest//libfabric/lib:/opt/intel/oneapi/mpi/lastest//lib/release:/opt/intel/oneapi/mpi/lastest//lib:/opt/intel/oneapi/mkl/lastest/lib/intel64:/opt/intel/oneapi/debugger/lastest/gdb/intel64/lib:/opt/intel/oneapi/debugger/lastest/libipt/intel64/lib:/opt/intel/oneapi/debugger/lastest/dep/lib:/opt/intel/oneapi/compiler/lastest/linux/lib:/opt/intel/oneapi/compiler/lastest/linux/lib/x64:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/host/linux64/lib:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin
+ENV MKLROOT=/opt/intel/oneapi/mkl/lastest
+ENV NLSPATH=/opt/intel/oneapi/compiler/2022.1.0/linux/compiler/lib/intel64_lin/locale/%l_%t/%N:/opt/intel/oneapi/mkl/lastest/lib/intel64/locale/%l_%t/%N:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin/locale/%l_%t/%N:/opt/intel/oneapi/mkl/lastest/lib/intel64/locale/%l_%t/%N:/opt/intel/oneapi/compiler/lastest/linux/compiler/lib/intel64_lin/locale/%l_%t/%N
+ENV PATH=/opt/intel/oneapi/mpi/2021.6.0//libfabric/bin:/opt/intel/oneapi/mpi/2021.6.0//bin:/opt/intel/oneapi/compiler/2022.1.0/linux/bin/intel64:/opt/intel/oneapi/compiler/2022.1.0/linux/bin:/opt/intel/oneapi/mpi/lastest//libfabric/bin:/opt/intel/oneapi/mpi/lastest//bin:/opt/intel/oneapi/mkl/lastest/bin/intel64:/opt/intel/oneapi/dev-utilities/lastest/bin:/opt/intel/oneapi/debugger/lastest/gdb/intel64/bin:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/bin:/opt/intel/oneapi/compiler/lastest/linux/bin/intel64:/opt/intel/oneapi/compiler/lastest/linux/bin:/opt/gcc/bin/:/opt/cmake/bin/:/opt/intel/oneapi/mpi/lastest//libfabric/bin:/opt/intel/oneapi/mpi/lastest//bin:/opt/intel/oneapi/mkl/lastest/bin/intel64:/opt/intel/oneapi/dev-utilities/lastest/bin:/opt/intel/oneapi/debugger/lastest/gdb/intel64/bin:/opt/intel/oneapi/compiler/lastest/linux/lib/oclfpga/bin:/opt/intel/oneapi/compiler/lastest/linux/bin/intel64:/opt/intel/oneapi/compiler/lastest/linux/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV CPATH=/opt/intel/oneapi/tbb/2021.6.0/env/../include:/opt/intel/oneapi/mpi/2021.6.0//include:/opt/intel/oneapi/tbb/lastest/env/../include:/opt/intel/oneapi/mpi/lastest//include:/opt/intel/oneapi/mkl/lastest/include:/opt/intel/oneapi/dpl/lastest/linux/include:/opt/intel/oneapi/dev-utilities/lastest/include:/opt/intel/oneapi/tbb/lastest/env/../include:/opt/intel/oneapi/mpi/lastest//include:/opt/intel/oneapi/mkl/lastest/include:/opt/intel/oneapi/dpl/lastest/linux/include:/opt/intel/oneapi/dev-utilities/lastest/include
+```
+
+Build and push run container
+
+```{.bash}
+podman build -t docker.io/charliecpeterson/run:gcc10.3.0_oneapi -f Dockerfile-run .
+podman push docker.io/charliecpeterson/run:gcc10.3.0_oneapi
+```
+
+## Build our software {.smaller}
+
+Now that we have build and pushed are container to DockerHub (or
+GitHub), we can build our final container
+
+```{.bash}
+# Compile code from build container
+Bootstrap: docker
+From: charliecpeterson/build:gcc10.3.0_oneapi
+Stage: devel
+
+%files
+  MPI_hello.c /MPI_hello.c
+  
+%post
+  mkdir -pv /apps
+  cd /apps
+  mv /MPI_hello.c ./
+  mpiicpc -o MPI_test.x MPI_hello.c
+  rm MPI_hello.c
+
+# move binary from build env to run env
+Bootstrap: docker
+From: charliecpeterson/run:gcc10.3.0_oneapi
+Stage: final
+
+%files from devel
+  /apps /apps
+  
+%environment
+export PATH=/apps:$PATH
+```
+
+Build container
+
+```{.bash}
+sudo apptainer build hello.sif hello.def
+scp hello.sif hoffman2.idre.ucla.edu:
+qsub hello.job
+```
+
+::: callout-note
+The same Multi Stage approach can be build by Docker/Podman in a
+Dockerfile
+:::
+
+# Things to Think About
+
+## Tips {.smaller}
+
+Size of container
+
+-   Try to keep the size of your container small and minimal
+
+    -   Only have the things necessary for your applications to run
+
+-   Large containers will need more **memory** and will take more take
+    to start up
+- Use `Multi-Stage` builds with Build/Run containers
+
+::: fragment
+
+Build from an existing container 
+
+- Look for images on DockerHub, NGC 
+- Build you own and upload to DockerHub/GitHub
+
+:::
+
+::: fragment
+
+-   Good idea to build a sandbox container, then create definition file
+    -   test out commands in sandbox while making the def file!
+:::
+
+## More Things to Think About 
+
+-   Share .sif files with your friends!
+    -   Save your (Docker) containers to DockerHub or GitHub Packages
+    - Create Dockerfile/Def files to recreate or modify containers
+-   Find examples of Dockerfiles and Apptainer def files on our GitHub Page
+    -   <https://github.com/ucla-oarc-hpc/hpc_containers>
+
+::: fragment
+
+-   Use DMTCP Checkpointing with Containers!!
+    -   <https://apptainer.org/docs/user/main/checkpoint.html>
+
+::: 
+
+# Thank you! {.smaller}
+
+Questions? Comments?
+
+Charles Peterson
+
+- [cpeterson\@oarc.ucla.edu](mailto:cpeterson@oarc.ucla.edu){.email}
+
+- <https://charlespeterson3.com>
+
+Look at for more Hoffman2 workshops at
+    <https://idre.ucla.edu/calendar>
+
+  - Search for `HPC`
+
+![](padfoot.jpeg){width="800" height="450"}
