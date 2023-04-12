@@ -10,8 +10,8 @@ View this workshop at
 	- [https://ucla-oarc-hpc.github.io/WS_MakingContainers/](https://ucla-oarc-hpc.github.io/WS_MakingContainers/)
 
 - PDF version
-	- `MakingContainers.pdf`
+	- `WS_MakingContainers.pdf`
 
 - Quarto file
-	- Making Container.qmd
+	- `WS_MakingContainers.qmd`
 
