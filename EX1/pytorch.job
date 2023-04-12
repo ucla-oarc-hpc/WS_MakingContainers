@@ -1,0 +1,16 @@
+#!/bin/bash
+#$ -cwd
+#$ -o joblog.$JOB_ID
+#$ -j y
+#$ -l h_rt=0:30:00,h_data=10G
+
+
+# load the job environment:
+. /u/local/Modules/default/init/modules.sh
+module load apptainer
+
+# Run singulariy as a single python3 command 
+# Container part: apptainer exec pytorch.sif
+# Command: python3 pytorch.py
+
+apptainer exec pytorch.sif  python3 pytorch.py > pytorch.out

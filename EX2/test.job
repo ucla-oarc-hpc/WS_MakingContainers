@@ -1,0 +1,16 @@
+#!/bin/bash
+#$ -cwd
+#$ -o quill.$JOB_ID
+#$ -j y
+#$ -l h_rt=1:00:00,h_data=15G
+#$ -pe shared 1
+#$ -l arch=intel-gold*
+
+# load the job environment:
+. /u/local/Modules/default/init/modules.sh
+module load apptainer
+
+# Container part: apptainer exec QUILL.sif
+# Command: QUILL.x /apps/QUILL/input.inp
+time apptainer exec quill.sif QUILL.x test.inp
+

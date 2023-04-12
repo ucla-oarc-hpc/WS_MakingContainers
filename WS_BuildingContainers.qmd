@@ -1,0 +1,1135 @@
+---
+title: "Building Containers for HPC"
+author: "Charles Peterson"
+date: "April 9, 2023"
+format: 
+  revealjs: 
+    transition: slide
+    theme: simple
+    scrollable: true
+    self-contained: true
+editor_options: 
+  markdown: 
+    wrap: 72
+from: markdown+emoji
+---
+
+## :memo: Overview {.smaller}
+
+:wave: Welcome!
+
+
+In this workshop, we will explore the advanced use of containers on HPC resources,
+like UCLA's Hoffman2. This is a follow-up to a previous workshop ["Containers for HPC Resources"](https://github.com/ucla-oarc-hpc/WS_containers)
+
+::: columns
+::: {.column .fragment width="40%"}
+-   :rocket: Dive into advanced container topics
+
+-   :toolbox: Build containers tailored for HPC resources
+:::
+
+::: {.column .fragment width="60%"}
+
+- :bulb: Got suggestions for upcoming workshops? 
+
+- cpeterson\@oarc.ucla.edu
+:::
+:::
+
+## :file_folder: Files for this Presentation { style="font-size: 0.75em" }
+
+:eyes: Viewing the slides
+
+<https://github.com/ucla-oarc-hpc/WS_MakingContainers>
+
+Find this slide deck in the `slides` folder.
+
+- html format: <https://ucla-oarc-hpc.github.io/WS_MakingContainers/>
+- PDF format: `WS_MakingContainers.qmd`
+
+::: callout-note
+This presentation was created with [Quarto](https://quarto.org/) and
+RStudio.
+
+-   Quarto file: `WS_MakingContainers.qmd`
+:::
+
+## Hands-on Exercise Setup
+
+:::{ style="font-size: 0.65em" } 
+In this workshop, we will engage in hands-on exercises.
+
+**Requirements:**
+
+- A computer with root/admin access (i.e., `sudo` permissions)
+- Install [Apptainer](https://github.com/apptainer/apptainer/blob/main/INSTALL.md)
+- Install either [Docker](https://docs.docker.com/engine/install/ubuntu/) or [Podman](https://podman.io/getting-started/installation#installing-on-linux)
+  - In this workshop, we will be using Podman
+- Note: Mac M1 (or other ARM-based systems) will not work for this exercise
+
+**Alternative: Virtual Machine**
+
+Pre-configured Virtual Machine (VM) available on [BOX](https://ucla.box.com/s/6fsinqhvsv3ywf9wmg30565iw7l8wvt1)
+
+- VM file: `wscontainer.ova`
+  - Recommended for use with VirtualBox
+- Username/Password: wscontainer/wscontainer
+
+:::
+
+# :arrows_counterclockwise: Container Review
+
+## :package: Containers 
+
+![](container_apps.png){.absolute top="100" left="100"}
+
+## :hammer_and_wrench: Software for Containers { style="font-size: 0.90em" }
+
+::: columns
+::: {.column width="40%"}
+![](word_cloud.png){.absolute bottom="150" width="35%"}
+:::
+
+::: {.column width="60%"}
+Apptainer
+
+-   Formerly Singularity
+-   :dart: Designed and developed for HPC systems
+-   :wrench: Most likely installed on most HPC systems
+-   :rocket: Supports Infiniband, GPUs, MPI, and other devices on the Host
+-   :whale: Can run Docker containers
+:::
+:::
+
+## :hammer_and_wrench: Software for Containers
+
+::: columns
+::: {.column width="40%"}
+![](word_cloud.png){.absolute bottom="150" width="35%"}
+:::
+
+::: {.column width="60%"}
+Docker
+
+-   :star: Very popular
+-   :cloud: Many popular cloud container registries
+    -   DockerHub, GitHub, Nvidia NGC
+-   :no_entry_sign: MPI not well supported
+-   :construction: Most likely NOT available on many HPC systems
+:::
+:::
+
+## :wrench: Software for Containers
+
+::: columns
+::: {.column width="40%"}
+![](word_cloud.png){.absolute bottom="150" width="35%"}
+:::
+
+::: {.column width="60%"}
+Podman
+
+-   :link: Similar syntax as with Docker
+    - :arrows_counterclockwise: Can use to 'replace' Docker
+-   :no_entry_sign: Doesn't have a root daemon process
+-   :desktop_computer:  On some HPC resources (not on Hoffman2, yet)
+:::
+:::
+
+
+## :clipboard: Apptainer workflow {.nostretch}
+
+![](diagram.png){width="1000px" height="200px"}
+
+## :building_construction: Apptainer workflow (Create) {.nostretch}
+
+::: {style="font-size: 0.55em"}
+
+-   :factory: Build a container by installing Apptainer on your computer (where you
+    have root/sudo access) to create a container
+
+-   :inbox_tray: Use a pre-built container
+
+    -   :mag: Search Container Registries for container
+    -   DockerHub, GitHub packages, Nvidia NGC
+
+- :file_cabinet: A SIF file contains the image for the container
+- :file_folder: A sandbox container is a directory format used for writable containers
+
+![](diagram-create.png){width="1000px" height="250px"}
+
+:::
+
+## :arrows_counterclockwise: Apptainer workflow (Transfer) {.nostretch}
+
+::: {style="font-size: 0.55em"}
+
+:truck: Bring your container to Hoffman2
+
+- :outbox_tray: Copy your container to Hoffman2
+
+```{.bash}
+scp test.sif H2USERNAME@hoffman2.idre.ucla.edu
+```
+
+- :outbox_tray: Pull a container from online Container Register
+
+```{.bash}
+apptainer pull docker://ubuntu:20.04
+```
+
+- 🖥️ Use a container pre-built on Hoffman2
+
+```{.bash}
+#Pre-built container location on Hoffman2
+ls $H2_CONTAINER_LOC
+```
+
+![](diagram-transfer.png){width="1000px" height="250px"}
+
+:::
+
+## :runner: Apptainer workflow (Run) {.nostretch .smaller}
+
+
+:robot: Interactive (qrsh) session
+
+
+```{.bash}
+qrsh -l h_data=15G
+module load apptainer
+apptainer exec mypython.sif python3 test.py
+```
+
+:page_facing_up: Batch (qsub) job
+
+
+```{.bash}
+cat << EOF >> myjob.job
+module load apptainer
+apptainer exec mypython.sif python3 test.py
+EOF
+qsub -l h_data=5G myjob.job
+```
+
+![](diagram-run.png){width="1000px" height="250px"}
+
+## :star: Common Usage
+
+::: {style="font-size: 0.75em"}
+On Hoffman2, to use apptainer, all you need to do is load the module
+
+```{.bash}
+module load apptainer
+```
+
+- :tada: Only module you need to load!
+- No need to load tons of modules to run a single application
+- :globe_with_meridians: Expect MPI module if running parallel
+    - `module load intel/2022.1.1`
+
+::: {.fragment}
+### :books: Common Apptainer commands
+
+::: columns
+::: {.column}
+
+- :outbox_tray: Getting a container from somewhere
+
+::: 
+::: {.column}
+```{.bash}
+apptainer pull [options]
+apptainer pull docker://ubuntu:22.04
+```
+
+:::
+:::
+::: columns
+::: {.column}
+- :factory: Build a container
+::: 
+::: {.column}
+```{.bash}
+apptainer build [options]
+apptainer build myapp.sif myapp.def
+```
+:::
+:::
+::: columns
+::: {.column}
+- :runner: Run a single command inside of a container
+::: 
+::: {.column}
+```{.bash}
+apptainer exec [options]
+apptainer exec myapp.sif MYCOMMAND
+```
+::: 
+::: 
+::: columns
+::: {.column}
+- :scroll: Run the the container with a predefined script
+::: 
+::: {.column}
+```{.bash}
+apptainer run [options]
+apptainer run myapp.sif "SCRIPT ARGRMENTS"
+```
+:::
+:::
+:::
+:::
+
+# Example 1: PyTorch
+
+## Example 1: Create writable containers :hammer_and_wrench:
+
+::: { style="font-size: 0.65em"}
+
+- This example uses [PyTorch](https://pytorch.org/) :brain:
+
+- Similar to last week's example
+  - Though, instead of using PyTorch's pre-build container, we will create our own container
+
+::: columns 
+::: {.column width="50%"}
+
+- Go to the `EX1` directory
+  - Examine the `pytorch.py` file
+  - Optimize a 3rd order polynomial to a sine function
+
+:::
+::: {.column width="50%"}
+
+![](training_animation.gif)
+
+:::
+:::
+
+:::
+
+## Creating the container :rocket: { style="font-size: 0.65em"}
+
+
+### Sandbox image
+
+::: { style="font-size: 0.85em"}
+
+- Create a container from a base source image 
+  - DockerHub has great minimal base containers
+    - [Ubuntu](https://hub.docker.com/_/ubuntu)
+    - [Rocky Linux](https://hub.docker.com/_/rockylinux)
+    - [CentOS](https://hub.docker.com/_/centos)
+    - There are various versions of multiple builds
+
+:::
+
+- Lets create a container based on Ubuntu 22.04
+
+```{.bash}
+sudo apptainer build --sandbox ubuntu_22.04_SB/ docker://ubuntu:22.04
+```
+
+::: { style="font-size: 0.55em"}
+
+- sudo
+  - Execute with root privileges 
+  - Building usually requires administrative access
+- apptainer build: 
+  - Build new Apptainer container image
+- --sandbox: 
+  - Flag for "sandbox" or a writable directory
+- ubuntu_22.04_SB/
+  - Name of the directory where the sandbox image will be created
+- docker://ubuntu:22.04
+  - Location of source image
+
+:::
+
+## Running the container :runner: { style="font-size: 0.85em"}
+
+Next, we will start a WRITABLE interactive shell session in the sandbox image:
+
+```{.bash}
+sudo apptainer shell --writable ubuntu_22.04_SB/
+```
+
+- `--writable` will allow us to modify the container
+
+From here, we can run any commands we need to install PyTorch:
+
+```{.bash}
+apt update
+apt install -y python3 python3-pip
+pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
+exit
+```
+
+Convert the sandbox container to a SIF file, `pytorch.sif`
+
+```{.bash}
+sudo apptainer build pytorch.sif ubuntu_22.04_SB/
+```
+
+## Running Our Container :rocket: { style="font-size: 0.85em"}
+
+Run our SIF container:
+
+```{.bash}
+apptainer exec pytorch.sif python3 pytorch.py
+```
+
+We do not need to be root since we are just running python3.
+
+Transfer our container:
+
+```{.bash}
+scp pytorch.sif hoffman2.idre.ucla.edu:
+```
+
+Example job script to run on Hoffman2:
+
+```{.bash}
+qsub pytorch.job
+```
+
+In this example, we used an interactive approach to install a python package in a container. 
+
+This is a useful way to experiment installing of your applications
+
+# Example 2: Building from definition files
+
+::: { style="font-size: 0.65em"}
+
+## Creating containers
+
+I coded a chemistry app located on github. 
+
+::: columns 
+::: {.column  width="50%"}
+
+- Very early attempt at learning Hartree-Fock
+  - Named from my hedgie, Quill Ricker
+- <https://github.com/charliecpeterson/QUILL>
+
+To install, we need
+
+-   Python with the PySCF package
+-   Eigen3, a Linear Algebra library
+::: 
+::: {.column width="50%"}
+
+<img src="quill.jpeg" width="50%">
+
+:::
+:::
+::: columns
+::: {.column .fragment width="50%"}
+- Instead of installing these dependencies on H2 (or loding modules)
+
+- Lets build a container!!
+
+:::
+
+::: {.column .fragment width="50%"}
+We will build this container by:
+
+- Apptainter definition file (.def)
+- Using Docker/Podman (Dockerfile)
+
+:::
+:::
+:::
+
+## Apptainer Definition file {.smaller}
+
+::: { style="font-size: 0.85em"}
+
+Definition Files are like the blueprint to building a custom container. 
+
+Instead of interactively modifying a sandbox image, we can build a container with this Definition file
+
+The `quill.def` file has all steps needed to build the QUILL container.
+
+::: {.fragement}
+::: columns
+::: {.column width="60%"}
+
+``` {.bash code-line-numbers="|1-2|4-5|7-22|24-25"}
+Bootstrap: docker
+From: ubuntu:20.04
+
+%labels
+Author Charles Peterson <cpeterson@oarc.ucla.edu>
+
+%post
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+   git python3 python3-dev python3-pip \
+   libeigen3-dev ca-certificates cmake make gcc g++
+rm -rf /var/lib/apt/lists/*
+
+pip3 install pyscf
+ln -s /usr/bin/python3 /usr/bin/python
+mkdir -pv /apps
+cd /apps
+git clone https://github.com/charliecpeterson/QUILL
+cd QUILL
+mkdir build ; cd build
+cmake ..
+make
+
+%environment
+export PATH=/apps/QUILL/build:$PATH
+```
+
+::: 
+::: {.column width="40%"}
+Sections:
+
+- Bootstrap/From - Location of starting container
+-   `%labels` - adds metadata
+-   `%post` - This section runs commands to setup the final container
+-   `%environment` - define environment variables inside container
+
+:::
+:::
+:::
+:::
+
+## Create container
+
+::: { style="font-size: 0.85em"}
+::: columns
+::: {.column width="50%"}
+The `quill.sif` container is created
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+sudo apptainer build quill.sif quill.def
+```
+
+:::
+:::
+::: fragment
+Let us test the container
+
+::: columns
+::: {.column width="50%"}
+
+- Run the command inside the container
+  - `QUILL.x test.inp` inside the container
+
+::: 
+::: {.column width="50%"}
+```{.bash}
+apptainer exec quill.sif  QUILL.x test.inp
+```
+
+:::
+:::
+:::
+::: fragment
+::: columns
+::: {.column width="50%"}
+
+- Move container to Hoffman2
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+scp quill.sif H2USERNAME@hoffman2.idre.ucla.edu:
+```
+
+:::
+:::
+:::
+:::
+
+## Building using Docker/Podman
+
+::: { style="font-size: 0.95em"}
+
+- Docker or Podman can create containers
+  - Then we conver Docker/Podman container to Apptainer
+
+- I will be using Podman
+  - Docker and Podman have same syntax
+  - Replace `podman` with `docker`
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```{.bash}
+docker build
+docker images
+docker pull
+docker run
+```
+:::
+
+::: {.column width="50%"}
+```{.bash}
+podman build
+podman images
+podman pull
+podman run
+```
+:::
+::::
+:::
+
+## Dockerfile 
+
+::: { style="font-size: 0.85em"}
+
+- `Dockerfile-quill` file is used by Docker to create container
+
+```{.bash}
+FROM ubuntu:20.04
+
+## Author Charles Peterson <cpeterson@arc.ucla.edu>
+
+RUN apt-get update \
+     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+   git python3 python3-dev python3-pip \
+   libeigen3-dev ca-certificates cmake make gcc g++ \
+   && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install pyscf ; ln -s /usr/bin/python3 /usr/bin/python
+
+RUN mkdir -pv /apps \
+    && cd /apps \
+    && git clone https://github.com/charliecpeterson/QUILL \
+    && cd QUILL \
+    && mkdir build ; cd build \
+    && cmake .. ; make
+
+ENV PATH=/apps/QUILL/build:$PATH
+```
+
+:::
+
+## Create container { style="font-size: 0.85em"}
+
+### Create Docker container
+
+::: columns
+::: {.column width="50%"}
+
+Build container from Dockerfile
+
+:::
+::: {.column width="50%"}
+
+```{.bash}
+podman build . -t quill:1.0 -f Dockerfile-quill
+```
+
+:::
+:::
+::: columns
+::: {.column width="50%"}
+See built docker (podman) container
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+podman image list
+```
+
+:::
+:::
+
+::: {.fragment}
+
+### Create Apptainer container 
+
+::: columns
+::: {.column width="50%"}
+
+Save docker (podman) image in tarball
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+podman save quill:1.0 > quill.tar
+```
+
+:::
+:::
+::: columns
+::: {.column width="50%"}
+
+- Create SIF file 
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+apptainer build quill.sif docker-archive://quill.tar
+```
+
+:::
+:::
+::: columns
+::: {.column width="50%"}
+
+- Transfer to Hoffman2
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+scp quill.sif H2USERNAME@hoffman2.idre.ucla.edu:
+```
+
+:::
+:::
+:::
+
+
+## Container Registry
+
+In the previous slides, we created a SIF file (quill.sif), then transfer (scp) them to Hoffman2.
+
+<br/>
+
+Instead of this, we can upload our container to a **Container Registry**.
+
+
+- These **Registries** are used store our containers on a remote, cloud server that can then be pulled/download anywhere that has apptainer.
+  - [DockerHub](https://hub.docker.com/)
+  - [GitHub Packages](https://docs.github.com/en/packages/learn-github-packages/introduction-to-github-packages)
+
+## DockerHub { style="font-size: 0.75em"}
+
+Lets create a repo on [DockerHub](https://hub.docker.com/)
+
+- First, create a DockerHub account
+  - Mine is `charliecpeterson`
+
+- Push our podman container to DockerHub
+  - Registry location `docker.io`
+
+::: {.columns .fragment} 
+::: {.column width="50%"}
+
+- Tag container to DockerHub location
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+podman tag quill:1.0 docker.io/charliecpeterson/quill:1.0
+```
+
+:::
+:::
+::: {.columns .fragment} 
+::: {.column width="50%"}
+
+- Login info to DockerHub
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+podman login docker.io
+```
+
+:::
+:::
+::: {.columns .fragment} 
+::: {.column width="50%"}
+- Push container to DockerHub
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+podman push docker.io/charliecpeterson/quill:1.0
+```
+
+:::
+:::
+::: {.columns .fragment} 
+::: {.column width="50%"}
+
+- Then pull the container on Hoffman2
+
+:::
+::: {.column width="50%"}
+
+```{.bash}
+apptainer pull docker://docker.io/charliecpeterson/quill:1.0
+```
+
+:::
+:::
+
+## GitHub Packages { style="font-size: 0.75em"}
+
+- Lets create a repo on [GitHub](https://github.com/) 
+  - Look for the Packages tab
+
+- Same syntax as before
+  - registry location is `ghcr.io`
+
+Push our final container to GitHub
+
+
+```{.bash}
+podman push ghcr.io/charliecpeterson/quill:1.0
+```
+
+Then pull the container on Hoffman2
+
+```{.bash}
+apptainer pull docker://ghcr.io/charliecpeterson/quill:1.0
+```
+
+
+
+DockerHub and GitHub Packages are popular cloud registries. You can
+create and deploy a local container registry. 
+
+- <https://docs.docker.com/registry/deploying/>
+
+## Running Container
+
+Once the container is on Hoffman2, submit job.
+
+```{.bash}
+#!/bin/bash
+#$ -cwd
+#$ -o quill.$JOB_ID
+#$ -j y
+#$ -l h_rt=1:00:00,h_data=15G
+#$ -pe shared 1
+#$ -l arch=intel-gold*
+
+# load the job environment:
+. /u/local/Modules/default/init/modules.sh
+module load apptainer
+
+# Container part: apptainer exec QUILL.sif
+# Command: QUILL.x /apps/QUILL/input.inp
+time apptainer exec quill.sif QUILL.x test.inp
+```
+
+Submit job script
+
+```{.bash}
+qsub test.job
+```
+
+::: fragment
+More information on using Definition files
+
+-   <https://apptainer.org/docs/user/1.0/definition_files.html>
+
+More information on using Dockerfiles
+
+-   <https://docs.docker.com/engine/reference/builder/>
+:::
+
+# Example 3: Anaconda { style="font-size: 0.75em"}
+
+Anaconda is a very popular python and R distributaion for simplifying package installation 
+
+- Check out my [Hoffman2 Happy Hour on Anaconda](https://github.com/ucla-oarc-hpc/hpc_workshops/tree/master/H2HH_anaconda_06292022) on our GitHub workshop page
+
+
+Though Anaconda can be tricky installing in a container due to environment setup.
+
+We will have an example using Anaconda to install an application in a container.
+
+
+## Building H2O 
+
+We will go over creating a definition file for a example with Anaconda.
+
+<br/>
+
+We will install the software [h2o.ai](https://h2o.ai/). This is a great
+machine learning platform that has Python and R libraries.
+
+<br/>
+
+In this example, we will use Anaconda to install h2o packages inside
+python and R.
+
+
+## H2o definition file {.smaller}
+
+The `h2o.def` file
+
+-   Definition file for Apptainer
+-   Install Anaconda from an env.yml
+-   Use of `%runscript` to setup Anaconda env for `apptainer run`
+    - the `$@` take arguments as a string from the command line
+    - `apptainer run h2o.sif "python h2o-test.py"`
+
+```{.bash}
+Bootstrap: docker
+From: ubuntu:22.04
+
+
+%labels
+Author Charles Peterson <cpeterson@oarc.ucla.edu>
+
+
+%post
+export DEBIAN_FRONTEND=noninteractive
+apt -y update ; apt -y upgrade 
+apt install -y  wget libbz2-dev wget git gcc  libreadline-dev zlib1g-dev default-jre default-jdk
+
+#Install anaconda
+cd /tmp
+wget https://repo.anaconda.com/archive/Anaconda3-2022.05-Linux-x86_64.sh
+bash Anaconda3-2022.05-Linux-x86_64.sh -b -p /opt/anaconda
+bash -c "source /opt/anaconda/etc/profile.d/conda.sh
+conda create -n h2oai h2o -c h2oai -c conda-forge
+"
+
+%runscript
+exec bash -c "source /opt/anaconda/etc/profile.d/conda.sh
+conda activate h2oai
+$@"
+```
+
+## Building container { style="font-size: 0.75em"}
+
+::: {.columns} 
+::: {.column width="50%"}
+
+- Create h2o.sif
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+sudo apptainer build h2o.sif h2o.def
+```
+
+:::
+:::
+::: {.columns} 
+::: {.column width="50%"}
+- Run h2o.R inside the container
+
+:::  
+::: {.column width="50%"}
+
+```{.bash}
+apptainer run h2o.sif "Rscript h2o.R"
+```
+
+:::
+:::
+
+::: {.fragment}
+::: callout-note
+- `apptainer exec foo.sif [COMMAND]` 
+  - Run a single [COMMAND] inside the container
+  - The runscript will NOT run
+
+- `apptainer run foo.sif` 
+  - Run the runscript inside the container
+:::
+:::
+
+# Example 4: RStudio and Jupyter
+
+## Jupyter { style="font-size: 0.65em"}
+
+- Create a container with Jupyter
+  - Useful so you can run same Jupyter setup anywhere
+  - Install all packages you need in container
+
+- `jupyter.def`
+  - Apptainer Def file
+  - Starts with a pre-built python 3.8.13 container
+  - Adds jupyter, pandas, and seaborn 
+
+::: {.columns .fragment} 
+::: {.column width="50%"}
+- Build container (locally)
+- Transfer to H2
+::: 
+::: {.column width="50%"}
+```{.bash}
+sudo apptainer build jupyter.sif jupyter.def 
+scp jupyter.sif hoffman2.idre.ucla.edu:
+```
+:::
+:::
+::: {.columns .fragment} 
+::: {.column width="50%"}
+
+- Start Jupyter on Hoffman2
+  - Note the name of compute node you landed on
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+qrsh -l h_data=10G
+module load apptainer
+hostname
+apptainer exec jupyter.sif jupyter lab --ip 0.0.0.0
+```
+
+:::
+:::
+::: {.columns .fragment} 
+::: {.column width="50%"}
+
+- SSH tunnel to H2 compute node
+  - Change nXXX (compute node)
+  - Change port 8888 if needed
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+ssh  -L 8888:nXXX:8888 username@hoffman2.idre.ucla.edu 
+```
+
+:::
+:::
+::: {.columns .fragment} 
+::: {.column width="50%"}
+- Then open a web browser and type
+::: 
+::: {.column width="50%"}
+```{.bash}
+http://localhost:8888 
+```
+
+:::
+:::
+
+## Rstudio { style="font-size: 0.65em"}
+
+- Use Rstudio Server to open a Rstudio session on your web browser.
+  - Very similar to the Jupyter setup
+  
+- More information from a previous [H2HH Rstudio session](https://github.com/ucla-oarc-hpc/hpc_workshops) 
+
+::: {.columns } 
+::: {.column width="50%"}
+
+- Create this container using Docker/Podman
+  - Local computer
+
+:::  
+::: {.column width="50%"}
+
+```{.bash}
+podman build -f Dockerfile-rstudio -t rstudio:4.1.0 .
+podman save rstudio:4.1.0 > rstudio.tar
+apptainer build rstudio.sif docker-archive://rstudio.tar
+scp rstudio.sif hoffman2.idre.ucla.edu
+```
+
+:::
+:::
+::: {.columns } 
+::: {.column width="50%"}
+
+- Setup Rstudio on Hoffman2
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+# get an interactive job
+qrsh -l h_data=10G
+# Create tmp directories
+mkdir -pv $SCRATCH/rstudiotmp/var/lib
+mkdir -pv $SCRATCH/rstudiotmp/var/run
+mkdir -pv $SCRATCH/rstudiotmp/tmp
+#Setup apptainer
+module load apptainer
+#Run rstudio
+apptainer run -B $SCRATCH/rstudiotmp/var/lib:/var/lib/rstudio-server -B $SCRATCH/rstudiotmp/var/run:/var/run/rstudio-server -B $SCRATCH/rstudiotmp/tmp:/tmp rstudio.sif
+# This command will display some information and a `ssh -L ...` command for you to run on a separate terminal 
+```
+
+:::
+:::
+::: {.columns } 
+::: {.column width="50%"}
+
+- Start Rstudio on web browser
+
+::: 
+::: {.column width="50%"}
+
+```{.bash}
+ssh  -L 8787:nXXX:8787 username@hoffman2.idre.ucla.edu # Or whatever command was displayed earlier 
+# Then open a web browser and type
+http://localhost:8787 #or whatever port number that was displayed
+```
+
+:::
+:::
+
+
+# Things to Think About :thinking:
+
+## Tips :hammer_and_wrench: {.smaller}
+
+Size of container
+
+- Try to keep the size of your container small and minimal
+    - Only have the things necessary for your applications to run
+- Large containers will need more **memory** and will take more time to start up
+- Check out `Multi-Stage` approach
+
+::: fragment
+
+- Build from an existing container
+  - Look for images on DockerHub, NGC
+  - Build your own and upload to DockerHub/GitHub
+
+:::
+
+::: fragment
+
+- Good idea to build a sandbox container, then create definition file
+    - Test out commands in sandbox while making the def file!
+:::
+
+## More Things to Think About :brain:
+
+-   Share .sif files with your friends!
+    -   Save your (Docker) containers to DockerHub or GitHub Packages
+    - Create Dockerfile/Def files to recreate or modify containers
+-   Find examples of Dockerfiles and Apptainer def files on our GitHub Page
+    -   <https://github.com/ucla-oarc-hpc/hpc_containers>
+
+::: fragment
+
+-   Use DMTCP Checkpointing with Containers!!
+    -   <https://apptainer.org/docs/user/main/checkpoint.html>
+
+:::
+
+# Thank you! :pray: {.smaller}
+
+Questions? Comments? :thinking:
+
+Charles Peterson
+[cpeterson\@oarc.ucla.edu](mailto:cpeterson@oarc.ucla.edu){.email}
+
+![](padfoot.jpeg){width="800" height="450"}
