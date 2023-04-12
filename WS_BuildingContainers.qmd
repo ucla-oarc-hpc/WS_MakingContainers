@@ -57,8 +57,12 @@ RStudio.
 
 ## Hands-on Exercise Setup
 
-:::{ style="font-size: 0.65em" } 
+:::{ style="font-size: 0.60em" } 
 In this workshop, we will engage in hands-on exercises.
+
+```{.bash}
+git clone https://github.com/ucla-oarc-hpc/WS_MakingContainers
+```
 
 **Requirements:**
 
@@ -182,7 +186,7 @@ apptainer pull docker://ubuntu:20.04
 - 🖥️ Use a container pre-built on Hoffman2
 
 ```{.bash}
-#Pre-built container location on Hoffman2
+module load apptainer
 ls $H2_CONTAINER_LOC
 ```
 
@@ -210,7 +214,7 @@ cat << EOF >> myjob.job
 module load apptainer
 apptainer exec mypython.sif python3 test.py
 EOF
-qsub -l h_data=5G myjob.job
+qsub -l h_data=15G myjob.job
 ```
 
 ![](diagram-run.png){width="1000px" height="250px"}
@@ -787,6 +791,7 @@ Push our final container to GitHub
 
 
 ```{.bash}
+podman tag quill:1.0 ghcr.io/charliecpeterson/quill:1.0
 podman push ghcr.io/charliecpeterson/quill:1.0
 ```
 
@@ -930,7 +935,7 @@ sudo apptainer build h2o.sif h2o.def
 ::: {.column width="50%"}
 
 ```{.bash}
-apptainer run h2o.sif "Rscript h2o.R"
+apptainer run h2o.sif "python h2o-test.py"
 ```
 
 :::
@@ -1110,7 +1115,7 @@ Size of container
     - Test out commands in sandbox while making the def file!
 :::
 
-## More Things to Think About :brain:
+## More Things to Think About :brain: { style="font-size: 0.85em"}
 
 -   Share .sif files with your friends!
     -   Save your (Docker) containers to DockerHub or GitHub Packages
