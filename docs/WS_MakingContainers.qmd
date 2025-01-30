@@ -39,10 +39,8 @@ like UCLA's Hoffman2. This is a follow-up to a previous workshop ["Containers fo
 
 <https://github.com/ucla-oarc-hpc/WS_MakingContainers>
 
-Find this slide deck in the `slides` folder.
-
 - html format: <https://ucla-oarc-hpc.github.io/WS_MakingContainers/>
-- PDF format: `WS_MakingContainers.qmd`
+- PDF format: `WS_MakingContainers.pdf`
 
 ::: callout-note
 This presentation was created with [Quarto](https://quarto.org/) and
@@ -62,11 +60,11 @@ git clone https://github.com/ucla-oarc-hpc/WS_MakingContainers
 
 **Requirements:**
 
-- A computer with root/admin access (i.e., `sudo` permissions)
+- A computer with admin access 
 - Install [Apptainer](https://github.com/apptainer/apptainer/blob/main/INSTALL.md)
 - Install either [Docker](https://docs.docker.com/engine/install/ubuntu/) or [Podman](https://podman.io/getting-started/installation#installing-on-linux)
   - In this workshop, we will be using Podman
-- Note: Mac M1 (or other ARM-based systems) will not work for this exercise
+- Note: MacOS (or other ARM-based systems) will not work for this exercise
 
 **Alternative: Virtual Machine**
 
@@ -353,9 +351,116 @@ apptainer run myapp.sif "SCRIPT ARGRMENTS"
 :::
 :::
 
+# Building Containers
+
+## Building Overview
+
+There are serveral ways to build containers for Apptainer
+
+- Use `apptainer build` to build new containers
+
+Typically, you will use the **build** command by 
+
+```{.bash}
+apptainer build <New Image> <Build Path>
+```
+
+- <New Image> is the name you want to give to the new image.
+- <Build Spec> is the method apptainer will use to build the container
+
+- Building a container using an existing container
+
+apptainer build myubuntu.sif docker://ubuntu:22.04
+
+This will create a new container, **myubuntu.sif** from an existing container from DockerHub.
+
+Typically, SIF formatted containers can **NOT** be modified once you create them. 
+
+- Sandbox directories
+  - Create a container within a writable directory (Sandbox) 
+  - Great to expermint installing software
+  
+apptainer build --sandbox myubuntu-SB docker://ubuntu:22.04
+
+This create a directory **myubuntu-SB** that has the contents of the ubuntu image from DockerHub.
+
+:::{.callout-note}
+
+This new Sandbox image does **NOT** have the .sif extension because this is a directory, not a single file.
+
+:::
+
+
+Once we have a Sandbox directory image, we can go inside the directory and make changes within the container with the **--writable** flag
+
+apptainer shell --writable mybuntu-SB
+
+Any changes made will be persistent when exiting the container.
+
+Once you make you changes, you can then convert the Sandbox container to a SIF container
+
+apptainer build myNewUbuntu.sif myubuntu-SB
+
+This will create a new SIF (single file) container, **myNewUbuntu.sif** from the Sandbox directory **myubuntu-SB**
+
+
+- Building from Apptainer definition files
+  - Build a container from a **definition file** that has detailed information on how to install software inside the container
+  - `apptainer build myapp.sif myapp.def`
+    - **myapp.sif** is the new container built
+    - **myapp.def** is the definition file
+
+This definition file details how the new container would be build
+
+Example definition file
+
+```{.bash}
+Bootstrap: docker
+From: docker.io/ubuntu:22.04
+
+%labels
+Example from apptainer.org
+
+%post
+    apt-get -y update
+    apt-get -y install cowsay lolcat
+
+%environment
+    export LC_ALL=C
+    export PATH=/usr/games:$PATH
+
+%runscript
+    date | cowsay | lolcat
+```
+
+Sections:
+
+- `%Bootstrap` - base bootstrap format to pull base OS
+  - **docker** bootstrap will pull docker format layers
+- `%From` - Location and name of **docker** container
+  - **docker.io** - DockerHub
+  - **ghcr.io** - GitHub Packages
+- `%labels` - Add textual information to container
+- `%post` - commands to setup the container from the baseOS the final container
+- `%environment` - define environment variables inside container
+- `%runscript` - define command to run when you enter the container
+  - for when running `apptainer run`
+
+In this example, we start with the Ubuntu 22.04 as a base OS. Then run commands from **%post** to create the final container. 
+
+apptainer build lolcow.sif lolcow.def
+
+Run a command inside the container
+
+apptainer exec lolcow.sif cowsay
+
+Execute the runscript from the container
+
+apptainer run lolcow.sif
+
 # Example 1: PyTorch
 
-## Example 1: Create writable containers :hammer_and_wrench:
+## Example 1: Writable containers :hammer_and_wrench:
 
 ::: { style="font-size: 0.65em"}
 
@@ -400,14 +505,11 @@ apptainer run myapp.sif "SCRIPT ARGRMENTS"
 - Lets create a container based on Ubuntu 22.04
 
 ```{.bash}
-sudo apptainer build --sandbox ubuntu_22.04_SB/ docker://ubuntu:22.04
+apptainer build --sandbox ubuntu_22.04_SB/ docker://ubuntu:22.04
 ```
 
 ::: { style="font-size: 0.55em"}
 
-- sudo
-  - Execute with root privileges 
-  - Building usually requires administrative access
 - apptainer build: 
   - Build new Apptainer container image
 - --sandbox: 
@@ -441,12 +543,12 @@ exit
 Convert the sandbox container to a SIF file, `pytorch.sif`
 
 ```{.bash}
-sudo apptainer build pytorch.sif ubuntu_22.04_SB/
+apptainer build pytorch.sif ubuntu_22.04_SB/
 ```
 
 ## Running Our Container :rocket: { style="font-size: 0.85em"}
 
-Run our SIF container:
+Test our new SIF container:
 
 ```{.bash}
 apptainer exec pytorch.sif python3 pytorch.py
@@ -470,7 +572,7 @@ In this example, we used an interactive approach to install a python package in 
 
 This is a useful way to experiment installing of your applications
 
-# Example 2: Building from definition files
+# Example 2: Definition files
 
 ## Creating containers
 
@@ -487,8 +589,8 @@ I coded a chemistry app located on github.
 
 To install, we need
 
--   Python with the PySCF package
--   Eigen3, a Linear Algebra library
+- Python with the PySCF package
+- Eigen3, a Linear Algebra library
 
 ::: 
 ::: {.column width="50%"}
@@ -499,7 +601,8 @@ To install, we need
 ::::
 :::: columns
 ::: {.column .fragment width="50%"}
-- Instead of installing these dependencies on H2 (or loding modules)
+
+- Instead of installing these dependencies on H2 (or loading modules)
 
 - Lets build a container!!
 
@@ -944,14 +1047,14 @@ More information on using Dockerfiles
 
 :::
 
-# Example 3: Anaconda { style="font-size: 0.75em"}
+# Example 3: Miniconda { style="font-size: 0.75em"}
 
-Anaconda is a very popular python and R distributaion for simplifying package installation 
+Miniconda is a very popular python and R distributaion for simplifying package installation 
 
 - Check out my [Hoffman2 Happy Hour on Anaconda](https://github.com/ucla-oarc-hpc/hpc_workshops/tree/master/H2HH_anaconda_06292022) on our GitHub workshop page
 
 
-Though Anaconda can be tricky installing in a container due to environment setup.
+Though Miniconda can be tricky installing in a container due to environment setup.
 
 We will have an example using Anaconda to install an application in a container.
 
@@ -967,7 +1070,7 @@ machine learning platform that has Python and R libraries.
 
 <br/>
 
-In this example, we will use Anaconda to install h2o packages inside
+In this example, we will use Miniconda to install h2o packages inside
 python and R.
 
 
@@ -976,8 +1079,8 @@ python and R.
 The `h2o.def` file
 
 -   Definition file for Apptainer
--   Install Anaconda from an env.yml
--   Use of `%runscript` to setup Anaconda env for `apptainer run`
+-   Install Miniconda from an env.yml
+-   Use of `%runscript` to setup Miniconda env for `apptainer run`
     - the `$@` take arguments as a string from the command line
     - `apptainer run h2o.sif "python h2o-test.py"`
 
