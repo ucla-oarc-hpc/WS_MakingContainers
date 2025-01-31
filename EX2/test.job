@@ -12,5 +12,5 @@ module load apptainer
 
 # Container part: apptainer exec QUILL.sif
 # Command: QUILL.x /apps/QUILL/input.inp
-time apptainer exec quill.sif QUILL.x test.inp
+apptainer exec quill.sif QUILL.x test.inp
 

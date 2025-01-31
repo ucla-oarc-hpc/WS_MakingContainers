@@ -1,25 +1,23 @@
 Bootstrap: docker
 From: ubuntu:22.04
 
-
 %labels
 Author Charles Peterson <cpeterson@oarc.ucla.edu>
 
-
 %post
 export DEBIAN_FRONTEND=noninteractive
-apt -y update ; apt -y upgrade 
+apt -y update ; apt -y upgrade
 apt install -y  wget libbz2-dev wget git gcc  libreadline-dev zlib1g-dev default-jre default-jdk
 
-#Install anaconda
+#Install Miniforge
 cd /tmp
-wget https://repo.anaconda.com/archive/Anaconda3-2022.05-Linux-x86_64.sh
-bash Anaconda3-2022.05-Linux-x86_64.sh -b -p /opt/anaconda
-bash -c "source /opt/anaconda/etc/profile.d/conda.sh
+wget https://github.com/conda-forge/miniforge/releases/download/24.11.3-0/Miniforge3-24.11.3-0-Linux-x86_64.sh
+bash Miniforge3-24.11.3-0-Linux-x86_64.sh -b -p /opt/miniforge
+bash -c "source /opt/miniforge/etc/profile.d/conda.sh
 conda create -n h2oai h2o -c h2oai -c conda-forge
 "
 
 %runscript
-exec bash -c "source /opt/anaconda/etc/profile.d/conda.sh
+exec bash -c "source /opt/miniforge/etc/profile.d/conda.sh
 conda activate h2oai
 $@"

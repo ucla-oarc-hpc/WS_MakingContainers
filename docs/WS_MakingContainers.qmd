@@ -353,9 +353,11 @@ apptainer run myapp.sif "SCRIPT ARGRMENTS"
 
 # Building Containers
 
-## Building Overview
+## Building Overview 🏗️
 
-There are serveral ways to build containers for Apptainer
+There are serveral ways to build containers for **Apptainer**
+
+Basic Build Command
 
 - Use `apptainer build` to build new containers
 
@@ -368,41 +370,86 @@ apptainer build <New Image> <Build Path>
 - <New Image> is the name you want to give to the new image.
 - <Build Spec> is the method apptainer will use to build the container
 
-- Building a container using an existing container
+## Building from an Existing Image 📦
 
+::: {style="font-size: 0.80em"}
+
+- Typically, you will build a container is by using an existing container as a base.
+
+```{.bash}
 apptainer build myubuntu.sif docker://ubuntu:22.04
+```
 
-This will create a new container, **myubuntu.sif** from an existing container from DockerHub.
+- This will create a new container file, **myubuntu.sif**, using the official Ubuntu 22.04 image from DockerHub.
+- Note: SIF containers are immutable 
+  - Once built, they cannot be modified.
 
-Typically, SIF formatted containers can **NOT** be modified once you create them. 
+- You can run your `apptainer` commands from this new container.
+
+```{.bash}
+apptainer shell myubuntu.sif
+apptainer exec myubuntu.sif echo "Hi"
+```
+
+:::
+
+## Sandbox (Writable Containers) 🏗️
+
+::: {style="font-size: 0.80em"}
+
+If you need a container that allows modifications, use the sandbox feature.
 
 - Sandbox directories
   - Create a container within a writable directory (Sandbox) 
   - Great to expermint installing software
-  
-apptainer build --sandbox myubuntu-SB docker://ubuntu:22.04
 
-This create a directory **myubuntu-SB** that has the contents of the ubuntu image from DockerHub.
+```{.bash}  
+sudo apptainer build --sandbox myubuntu-SB docker://ubuntu:22.04
+```
+
+- This create a directory **myubuntu-SB** that has the contents of the ubuntu image from DockerHub.
+- Note the use of `sudo`
+  - To ensure proper file permissions it is recommended to run this as an admin
 
 :::{.callout-note}
 
 This new Sandbox image does **NOT** have the .sif extension because this is a directory, not a single file.
 
 :::
+:::
 
+## Using Sandbox Containers 🏗️
 
-Once we have a Sandbox directory image, we can go inside the directory and make changes within the container with the **--writable** flag
+::: {style="font-size: 0.80em"}
 
-apptainer shell --writable mybuntu-SB
+- You can enter the sandbox container and modify it
+  - Use `--writable` flag
 
-Any changes made will be persistent when exiting the container.
+```{.bash}
+sudo apptainer shell --writable myubuntu-SB
+```
 
-Once you make you changes, you can then convert the Sandbox container to a SIF container
+  - Any modifications inside the sandbox persist after you exit.
 
-apptainer build myNewUbuntu.sif myubuntu-SB
+Once you’re satisfied with the changes, convert it to a **SIF container**:
 
-This will create a new SIF (single file) container, **myNewUbuntu.sif** from the Sandbox directory **myubuntu-SB**
+```{.bash}
+sudo apptainer build myNewUbuntu.sif myubuntu-SB
+```
 
+This packages the modified sandbox into a **read-only** .sif container called **myNewUbuntu.sif**.
+
+:::
+
+## Building with a Definition File 📜 
+
+::: {style="font-size: 0.80em"}
+
+A definition file provides precise instructions on how to build and configure a container.
+
+```{.bash}
+apptainer build myapp.sif myapp.def
+```
 
 - Building from Apptainer definition files
   - Build a container from a **definition file** that has detailed information on how to install software inside the container
@@ -412,7 +459,16 @@ This will create a new SIF (single file) container, **myNewUbuntu.sif** from the
 
 This definition file details how the new container would be build
 
-Example definition file
+:::
+
+## Example definition file 🔧
+
+::: {style="font-size: 0.60em"}
+
+:::: columns
+::: {.column width="35%"}
+
+File: **lolcow.def**
 
 ```{.bash}
 Bootstrap: docker
@@ -433,30 +489,56 @@ Example from apptainer.org
     date | cowsay | lolcat
 ```
 
-Sections:
+:::
+::: {.column width="65%"}
 
-- `%Bootstrap` - base bootstrap format to pull base OS
+- `%Bootstrap` - Specifies how to pull the base OS (e.g., from Docker).
   - **docker** bootstrap will pull docker format layers
 - `%From` - Location and name of **docker** container
   - **docker.io** - DockerHub
   - **ghcr.io** - GitHub Packages
-- `%labels` - Add textual information to container
-- `%post` - commands to setup the container from the baseOS the final container
-- `%environment` - define environment variables inside container
-- `%runscript` - define command to run when you enter the container
-  - for when running `apptainer run`
+- `%labels` - Add textual metadata information to container
+- `%post` - Commands to setup the container from the baseOS the final container
+- `%environment` - Define environment variables inside container
+- `%runscript` - Specifies the command that runs when using `apptainer run`
+
+:::
+::::
 
 In this example, we start with the Ubuntu 22.04 as a base OS. Then run commands from **%post** to create the final container. 
 
+:::
+
+## Running from Definition File 🏃
+
+::: {style="font-size: 0.65em"}
+
+- Build the container
+
+```{.bash}
 apptainer build lolcow.sif lolcow.def
+```
 
-Run a command inside the container
+- Execute a command inside the container
 
-apptainer exec lolcow.sif cowsay
+```{.bash}
+apptainer exec lolcow.sif cowsay "Hello from Apptainer!"
+```
 
-Execute the runscript from the container
+- Run the container’s default script
 
+```{.bash}
 apptainer run lolcow.sif
+```
+
+This will execute the runscript section (which prints a date-stamped ASCII cow 🐄 message in rainbow colors 🌈).
+
+Once you create a SIF file, this is the container that you can transfer to Hoffman2 to run or share with others.
+
+::: {.callout-note}
+Can also build an SIF container from a Dockerfile
+:::
+:::
 
 # Example 1: PyTorch
 
@@ -486,21 +568,15 @@ apptainer run lolcow.sif
 
 :::
 
-## Creating the container :rocket: { style="font-size: 0.65em"}
+## Creating Sandbox container :rocket:
 
-
-### Sandbox image
-
-::: { style="font-size: 0.85em"}
+::: { style="font-size: 0.60em"}
 
 - Create a container from a base source image 
   - DockerHub has great minimal base containers
     - [Ubuntu](https://hub.docker.com/_/ubuntu)
     - [Rocky Linux](https://hub.docker.com/_/rockylinux)
     - [CentOS](https://hub.docker.com/_/centos)
-    - There are various versions of multiple builds
-
-:::
 
 - Lets create a container based on Ubuntu 22.04
 
@@ -508,20 +584,32 @@ apptainer run lolcow.sif
 apptainer build --sandbox ubuntu_22.04_SB/ docker://ubuntu:22.04
 ```
 
-::: { style="font-size: 0.55em"}
+:::: columns
+::: column
 
-- apptainer build: 
+- `apptainer build`: 
   - Build new Apptainer container image
-- --sandbox: 
+- `--sandbox`: 
   - Flag for "sandbox" or a writable directory
-- ubuntu_22.04_SB/
+  
+::: 
+::: column
+
+- `ubuntu_22.04_SB/`
   - Name of the directory where the sandbox image will be created
-- docker://ubuntu:22.04
+- `docker://ubuntu:22.04`
   - Location of source image
 
 :::
+::::
 
-## Running the container :runner: { style="font-size: 0.85em"}
+This will create a Sandbox container **ubuntu_22.04_SB**
+
+:::
+
+## Running the container :runner: 
+
+::: { style="font-size: 0.80em"}
 
 Next, we will start a WRITABLE interactive shell session in the sandbox image:
 
@@ -543,15 +631,19 @@ exit
 Convert the sandbox container to a SIF file, `pytorch.sif`
 
 ```{.bash}
-apptainer build pytorch.sif ubuntu_22.04_SB/
+sudo apptainer build pytorch.sif ubuntu_22.04_SB/
 ```
 
-## Running Our Container :rocket: { style="font-size: 0.85em"}
+:::
+
+## Running Our Container :rocket: 
+
+::: { style="font-size: 0.85em"}
 
 Test our new SIF container:
 
 ```{.bash}
-apptainer exec pytorch.sif python3 pytorch.py
+apptainer exec pytorch.sif python3 pytorch-code.py
 ```
 
 We do not need to be root since we are just running python3.
@@ -559,7 +651,7 @@ We do not need to be root since we are just running python3.
 Transfer our container:
 
 ```{.bash}
-scp pytorch.sif hoffman2.idre.ucla.edu:
+scp pytorch.sif USERNAME@hoffman2.idre.ucla.edu:
 ```
 
 Example job script to run on Hoffman2:
@@ -568,23 +660,22 @@ Example job script to run on Hoffman2:
 qsub pytorch.job
 ```
 
-In this example, we used an interactive approach to install a python package in a container. 
 
-This is a useful way to experiment installing of your applications
+:::
 
-# Example 2: Definition files
+# Example 2: Installing Scientific Code
 
-## Creating containers
+## QUILL software 🔬
 
-::: { style="font-size: 0.65em"}
+::: { style="font-size: 0.60em"}
 
-I coded a chemistry app located on github. 
+In this example, we will create a container with a chemistry application that I created in Grad School. This code will calcuate the engery of a molecule. 
 
 :::: columns 
-::: {.column  width="50%"}
+::: {.column  width="60%"}
 
 - Very early attempt at learning Hartree-Fock
-  - Named from my hedgie, Quill Ricker
+  - Named from my pet hedgehog, Quill Ricker
 - <https://github.com/charliecpeterson/QUILL>
 
 To install, we need
@@ -593,21 +684,12 @@ To install, we need
 - Eigen3, a Linear Algebra library
 
 ::: 
-::: {.column width="50%"}
+::: {.column width="40%"}
 
 <img src="quill.jpeg" width="50%">
 
 :::
 ::::
-:::: columns
-::: {.column .fragment width="50%"}
-
-- Instead of installing these dependencies on H2 (or loading modules)
-
-- Lets build a container!!
-
-:::
-::: {.column .fragment width="50%"}
 
 We will build this container by:
 
@@ -615,22 +697,15 @@ We will build this container by:
 - Using Docker/Podman (Dockerfile)
 
 :::
-::::
-:::
 
-## Apptainer Definition file {.smaller}
+## Apptainer Definition file 📜
 
-::: { style="font-size: 0.85em"}
+::: { style="font-size: 0.55em"}
 
-Definition Files are like the blueprint to building a custom container. 
+- Definition Files are like the blueprint to building a custom container. 
+- Instead of interactively modifying a sandbox image, we can build a container with this Definition file
+- The `quill.def` file has all steps needed to build the QUILL container.
 
-Instead of interactively modifying a sandbox image, we can build a container with this Definition file
-
-The `quill.def` file has all steps needed to build the QUILL container.
-
-::: {.fragement}
-:::: columns
-::: {.column width="60%"}
 
 ``` {.bash code-line-numbers="|1-2|4-5|7-22|24-25"}
 Bootstrap: docker
@@ -660,47 +735,35 @@ make
 export PATH=/apps/QUILL/build:$PATH
 ```
 
-::: 
-::: {.column width="40%"}
-
-Sections:
-
-- Bootstrap/From - Location of starting container
--   `%labels` - adds metadata
--   `%post` - This section runs commands to setup the final container
--   `%environment` - define environment variables inside container
-
-:::
-::::
-:::
 :::
 
-## Create container
+## Create container 🔧
 
 ::: { style="font-size: 0.85em"}
 :::: columns
 ::: {.column width="50%"}
 
-The `quill.sif` container is created
+Create the `quill.sif` container  
 
 ::: 
 ::: {.column width="50%"}
 
 ```{.bash}
-sudo apptainer build quill.sif quill.def
+apptainer build quill.sif quill.def
 ```
 
 :::
 ::::
 ::: fragment
 
-Let us test the container
-
+- To Run this software, you would run
+  - `QUILL.x test.inp`
+  - Where **test.inp** is the input file
+ 
 :::: columns
 ::: {.column width="50%"}
-
-- Run the command inside the container
-  - `QUILL.x test.inp` inside the container
+ 
+- Running the command inside the container
 
 ::: 
 ::: {.column width="50%"}
@@ -722,7 +785,7 @@ apptainer exec quill.sif  QUILL.x test.inp
 ::: {.column width="50%"}
 
 ```{.bash}
-scp quill.sif H2USERNAME@hoffman2.idre.ucla.edu:
+scp quill.sif USERNAME@hoffman2.idre.ucla.edu:
 ```
 
 :::
@@ -730,12 +793,12 @@ scp quill.sif H2USERNAME@hoffman2.idre.ucla.edu:
 :::
 :::
 
-## Building using Docker/Podman
+## Building using Docker/Podman 📤
 
-::: { style="font-size: 0.95em"}
+::: { style="font-size: 0.85em"}
 
-- Docker or Podman can create containers
-  - Then we conver Docker/Podman container to Apptainer
+- Docker or Podman can be use to create containers
+  - Then convert Docker/Podman container to SIF format
 
 - I will be using Podman
   - Docker and Podman have same syntax
@@ -767,9 +830,9 @@ podman run
 ::::
 :::
 
-## Dockerfile 
+## Dockerfile for QUILL 🛠️
 
-::: { style="font-size: 0.85em"}
+::: { style="font-size: 0.80em"}
 
 - `Dockerfile-quill` file is used by Docker to create container
 
@@ -798,14 +861,16 @@ ENV PATH=/apps/QUILL/build:$PATH
 
 :::
 
-## Create container { style="font-size: 0.85em"}
+## Container Creation 🚀
+
+::: { style="font-size: 0.80em"}
 
 ### Create Docker container
 
 :::: columns
 ::: {.column width="50%"}
 
-Build container from Dockerfile
+- Build container from Dockerfile
 
 :::
 ::: {.column width="50%"}
@@ -819,7 +884,7 @@ podman build . -t quill:1.0 -f Dockerfile-quill
 :::: columns
 ::: {.column width="50%"}
 
-See built docker (podman) container
+- See built docker (podman) container
 
 ::: 
 ::: {.column width="50%"}
@@ -833,12 +898,12 @@ podman image list
 
 ::: {.fragment}
 
-### Create Apptainer container 
+### Create Apptainer container from Podman
 
 :::: columns
 ::: {.column width="50%"}
 
-Save docker (podman) image in tarball
+- Save podman image in a tarball
 
 ::: 
 ::: {.column width="50%"}
@@ -866,23 +931,23 @@ apptainer build quill.sif docker-archive://quill.tar
 :::: columns
 ::: {.column width="50%"}
 
-- Transfer to Hoffman2
+- Transfer final SIF to Hoffman2
 
 ::: 
 ::: {.column width="50%"}
 
 ```{.bash}
-scp quill.sif H2USERNAME@hoffman2.idre.ucla.edu:
+scp quill.sif USERNAME@hoffman2.idre.ucla.edu:
 ```
 
 :::
 ::::
 :::
+:::
 
+## Container Registry 📓 { style="font-size: 0.85em"}
 
-## Container Registry { style="font-size: 0.85em"}
-
-In the previous slides, we created a SIF file (quill.sif), then transfer (scp) them to Hoffman2.
+In the previous slides, we created a SIF file (quill.sif), then transfer (scp) the container to Hoffman2.
 
 <br/>
 
@@ -893,7 +958,7 @@ Instead of this, we can upload our container to a **Container Registry**.
   - [DockerHub](https://hub.docker.com/)
   - [GitHub Packages](https://docs.github.com/en/packages/learn-github-packages/introduction-to-github-packages)
 
-## DockerHub { style="font-size: 0.75em"}
+## DockerHub 📓 { style="font-size: 0.75em"}
 
 Lets create a repo on [DockerHub](https://hub.docker.com/)
 
@@ -960,7 +1025,7 @@ apptainer pull docker://docker.io/charliecpeterson/quill:1.0
 :::
 ::::
 
-## GitHub Packages 
+## GitHub Packages 📓
 
 ::: { style="font-size: 0.75em"}
 
@@ -1007,7 +1072,9 @@ create and deploy a local container registry.
 
 :::
 
-## Running Container
+## Running Container 🏃
+
+::: { style="font-size: 0.75em"}
 
 Once the container is on Hoffman2, submit job.
 
@@ -1026,93 +1093,112 @@ module load apptainer
 
 # Container part: apptainer exec QUILL.sif
 # Command: QUILL.x /apps/QUILL/input.inp
-time apptainer exec quill.sif QUILL.x test.inp
+apptainer exec quill.sif QUILL.x test.inp
 ```
 
+::: fragment
+:::: columns
+::: column
+
 Submit job script
+
+:::
+::: column
 
 ```{.bash}
 qsub test.job
 ```
 
+:::
+::::
+:::
 ::: fragment
 
-More information on using Definition files
+More information on using [Definition files](https://apptainer.org/docs/user/1.0/definition_files.html)
 
--   <https://apptainer.org/docs/user/1.0/definition_files.html>
+More information on using [Dockerfiles](https://docs.docker.com/engine/reference/builder/)
 
-More information on using Dockerfiles
+:::
+:::
 
--   <https://docs.docker.com/engine/reference/builder/>
+# Example 3: MiniForge 🐍
+
+::: { style="font-size: 0.75em"}
+
+MiniForge is a very popular python and R distributaion for simplifying package installation via the conda package manager
+
+- Check out my [Hoffman2 Happy Hour on Anaconda](https://github.com/ucla-oarc-hpc/H2HH_anaconda) on our GitHub workshop page
+
+MiniForge can be tricky installing in a container due to environment setup.
+
+This example will use MiniForge to install an application in a container.
 
 :::
 
-# Example 3: Miniconda { style="font-size: 0.75em"}
+## Building H2O 💧
 
-Miniconda is a very popular python and R distributaion for simplifying package installation 
+::: { style="font-size: 0.75em"}
 
-- Check out my [Hoffman2 Happy Hour on Anaconda](https://github.com/ucla-oarc-hpc/hpc_workshops/tree/master/H2HH_anaconda_06292022) on our GitHub workshop page
+:::: columns
+::: column
 
-
-Though Miniconda can be tricky installing in a container due to environment setup.
-
-We will have an example using Anaconda to install an application in a container.
-
-
-## Building H2O 
-
-We will go over creating a definition file for a example with Anaconda.
-
-<br/>
+We will go over creating a definition file for a example with MiniForge
 
 We will install the software [h2o.ai](https://h2o.ai/). This is a great
 machine learning platform that has Python and R libraries.
 
-<br/>
+:::
+::: column
 
-In this example, we will use Miniconda to install h2o packages inside
+<img src="h2o.png" width="50%">
+
+:::
+::::
+
+In this example, we will use MiniForge to install h2o packages inside
 python and R.
 
+:::
 
-## H2o definition file {.smaller}
+## H2O definition file 📜
 
-The `h2o.def` file
+::: { style="font-size: 0.65em"}
 
--   Definition file for Apptainer
--   Install Miniconda from an env.yml
--   Use of `%runscript` to setup Miniconda env for `apptainer run`
+- The `h2o.def` file
+  - Use of `%runscript` to setup MiniForge env for `apptainer run`
     - the `$@` take arguments as a string from the command line
-    - `apptainer run h2o.sif "python h2o-test.py"`
 
 ```{.bash}
 Bootstrap: docker
 From: ubuntu:22.04
 
-
 %labels
 Author Charles Peterson <cpeterson@oarc.ucla.edu>
 
-
 %post
 export DEBIAN_FRONTEND=noninteractive
-apt -y update ; apt -y upgrade 
+apt -y update ; apt -y upgrade
 apt install -y  wget libbz2-dev wget git gcc  libreadline-dev zlib1g-dev default-jre default-jdk
 
-#Install anaconda
+#Install Miniforge
 cd /tmp
-wget https://repo.anaconda.com/archive/Anaconda3-2022.05-Linux-x86_64.sh
-bash Anaconda3-2022.05-Linux-x86_64.sh -b -p /opt/anaconda
-bash -c "source /opt/anaconda/etc/profile.d/conda.sh
+wget https://github.com/conda-forge/miniforge/releases/download/24.11.3-0/Miniforge3-24.11.3-0-Linux-x86_64.sh
+bash Miniforge3-24.11.3-0-Linux-x86_64.sh -b -p /opt/miniforge
+bash -c "source /opt/miniforge/etc/profile.d/conda.sh
 conda create -n h2oai h2o -c h2oai -c conda-forge
 "
 
 %runscript
-exec bash -c "source /opt/anaconda/etc/profile.d/conda.sh
+exec bash -c "source /opt/miniforge/etc/profile.d/conda.sh
 conda activate h2oai
 $@"
 ```
 
-## Building container { style="font-size: 0.75em"}
+In the runscript, it will activate the conda environment, h2oai, and run the command that follows the `apptainer run h2o.sif` command
+
+:::
+
+## Building container 🔧 { style="font-size: 0.75em"}
 
 :::: {.columns} 
 ::: {.column width="50%"}
@@ -1123,7 +1209,7 @@ $@"
 ::: {.column width="50%"}
 
 ```{.bash}
-sudo apptainer build h2o.sif h2o.def
+apptainer build h2o.sif h2o.def
 ```
 
 :::
@@ -1131,7 +1217,7 @@ sudo apptainer build h2o.sif h2o.def
 :::: {.columns} 
 ::: {.column width="50%"}
 
-- Run h2o.R inside the container
+- Run python inside the container
 
 :::  
 ::: {.column width="50%"}
@@ -1155,13 +1241,34 @@ apptainer run h2o.sif "python h2o-test.py"
 :::
 :::
 
-# Example 4: RStudio and Jupyter
+# Example 4: Jupyter
 
-## Jupyter { style="font-size: 0.65em"}
+## Using Jupyter 🐍
+
+::: { style="font-size: 0.65em"}
+
+:::: columns
+::: column
+
+This example will show how to create a Jupyter container and start a Jupyter on Hoffman2
+
+:::
+::: column
+
+<img src="jupyter.png" width="50%">
+
+:::
+::::
 
 - Create a container with Jupyter
   - Useful so you can run same Jupyter setup anywhere
   - Install all packages you need in container
+
+:::
+
+## Creating Jupyter container 🐍
+
+::: { style="font-size: 0.65em"}
 
 - `jupyter.def`
   - Apptainer Def file
@@ -1178,17 +1285,22 @@ apptainer run h2o.sif "python h2o-test.py"
 ::: {.column width="50%"}
 
 ```{.bash}
-sudo apptainer build jupyter.sif jupyter.def 
+apptainer build jupyter.sif jupyter.def 
 scp jupyter.sif hoffman2.idre.ucla.edu:
 ```
 
 :::
 :::
+:::
+
+## Running Jupyter 🏃
+
+::: { style="font-size: 0.65em"}
 ::: {.columns .fragment} 
 ::: {.column width="50%"}
 
 - Start Jupyter on Hoffman2
-  - Note the name of compute node you landed on
+  - Note the name of compute node you landed on for SSH tunneling
 
 ::: 
 ::: {.column width="50%"}
@@ -1229,75 +1341,9 @@ http://localhost:8888
 
 :::
 :::
-
-## Rstudio { style="font-size: 0.65em"}
-
-- Use Rstudio Server to open a Rstudio session on your web browser.
-  - Very similar to the Jupyter setup
-  
-- More information from a previous [H2HH Rstudio session](https://github.com/ucla-oarc-hpc/hpc_workshops) 
-
-::: {.columns } 
-::: {.column width="50%"}
-
-- Create this container using Docker/Podman
-  - Local computer
-
-:::  
-::: {.column width="50%"}
-
-```{.bash}
-podman build -f Dockerfile-rstudio -t rstudio:4.1.0 .
-podman save rstudio:4.1.0 > rstudio.tar
-apptainer build rstudio.sif docker-archive://rstudio.tar
-scp rstudio.sif hoffman2.idre.ucla.edu
-```
-
-:::
-:::
-::: {.columns } 
-::: {.column width="50%"}
-
-- Setup Rstudio on Hoffman2
-
-::: 
-::: {.column width="50%"}
-
-```{.bash}
-# get an interactive job
-qrsh -l h_data=10G
-# Create tmp directories
-mkdir -pv $SCRATCH/rstudiotmp/var/lib
-mkdir -pv $SCRATCH/rstudiotmp/var/run
-mkdir -pv $SCRATCH/rstudiotmp/tmp
-#Setup apptainer
-module load apptainer
-#Run rstudio
-apptainer run -B $SCRATCH/rstudiotmp/var/lib:/var/lib/rstudio-server -B $SCRATCH/rstudiotmp/var/run:/var/run/rstudio-server -B $SCRATCH/rstudiotmp/tmp:/tmp rstudio.sif
-# This command will display some information and a `ssh -L ...` command for you to run on a separate terminal 
-```
-
-:::
-:::
-::: {.columns } 
-::: {.column width="50%"}
-
-- Start Rstudio on web browser
-
-::: 
-::: {.column width="50%"}
-
-```{.bash}
-ssh  -L 8787:nXXX:8787 username@hoffman2.idre.ucla.edu # Or whatever command was displayed earlier 
-# Then open a web browser and type
-http://localhost:8787 #or whatever port number that was displayed
-```
-
-:::
 :::
 
-
-# Things to Think About :thinking:
+# Wrap Up
 
 ## Tips :hammer_and_wrench: {.smaller}
 
